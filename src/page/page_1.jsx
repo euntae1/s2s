@@ -16,7 +16,7 @@ const Page1 = () => {
             <img src={logoImg} alt="Scene to Sound Logo" className="main-logo-large" />
           </div>
           <h1 className="main-brand-text">
-            Scene to sound
+            Scene to Sound
           </h1>
         </section>
 
