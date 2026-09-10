@@ -1,4 +1,5 @@
 import React from 'react';
+
 import './music.css';
 
 const Music = ({
@@ -9,6 +10,18 @@ const Music = ({
   musicUrl,
   onGenerate
 }) => {
+
+  const handleGenerate = (
+    event
+  ) => {
+    event.stopPropagation();
+
+    onGenerate(
+      segment.id
+    );
+  };
+
+
   return (
     <div className="music-container">
 
@@ -37,7 +50,9 @@ const Music = ({
 
       </div>
 
+
       {/* Prompt */}
+
       <div className="music-prompt-box">
 
         <div className="music-prompt-label">
@@ -50,36 +65,48 @@ const Music = ({
 
       </div>
 
+
       {/* 음악 생성 / 재생 */}
+
       <div className="music-action">
 
         {!hasMusic ? (
+
           <button
             className="generate-music-btn"
-            onClick={() =>
-              onGenerate(segment.id)
+            onClick={
+              handleGenerate
             }
-            disabled={isGenerating}
+            disabled={
+              isGenerating
+            }
           >
             {isGenerating
               ? '🎵 음악 생성 중...'
               : '🎵 음악 생성'}
           </button>
+
         ) : (
+
           <div className="music-player">
 
             <audio
               controls
               src={musicUrl}
               className="audio-player"
+              onClick={(event) =>
+                event.stopPropagation()
+              }
             />
 
             <button
               className="regenerate-music-btn"
-              onClick={() =>
-                onGenerate(segment.id)
+              onClick={
+                handleGenerate
               }
-              disabled={isGenerating}
+              disabled={
+                isGenerating
+              }
             >
               {isGenerating
                 ? '생성 중...'
@@ -87,6 +114,7 @@ const Music = ({
             </button>
 
           </div>
+
         )}
 
       </div>

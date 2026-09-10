@@ -1,6 +1,5 @@
 import React, {
-  useRef,
-  useState
+  useRef
 } from 'react';
 
 import Header from '../component/header';
@@ -9,110 +8,64 @@ import Music from '../component/music';
 
 import './page_4.css';
 
+const EMPTY_ARRAY = [];
+
 const Page4 = ({
   videoPreviewUrl,
   selectedFile,
-  segments,
-  musicSelectedIds,
-  prompts,
-  onGoPrevious,
+  segments = EMPTY_ARRAY,
+  musicSelectedIds = EMPTY_ARRAY,
+  prompts = {},
+  generatedMusic = {},
+  generatingId = null,
+  isLoading = false,
+  error = '',
+  onGenerate,
   onGoNext,
   onGoHome
 }) => {
-  const videoRef = useRef(null);
+  const videoRef =
+    useRef(null);
 
-  // 현재 음악을 생성하고 있는 컷
-  const [generatingId, setGeneratingId] =
-    useState(null);
 
-  // 생성 완료된 음악
-  const [generatedMusic, setGeneratedMusic] =
-    useState({});
-
+  // ============================================================
   // 컷 클릭 시 영상 이동
+  // ============================================================
+
   const handleSegmentClick = (
     startTime
   ) => {
-    const video = videoRef.current;
+    const video =
+      videoRef.current;
 
     if (!video) {
       return;
     }
 
-    const targetTime = Math.max(
-      0,
-      startTime - 1
-    );
+    const targetTime =
+      Math.max(
+        0,
+        Number(startTime) - 1
+      );
 
     video.currentTime =
       targetTime;
 
-    video.play().catch((error) => {
-      console.log(
-        'Video play failed:',
-        error
-      );
-    });
+    video.play().catch(
+      (error) => {
+        console.log(
+          'Video play failed:',
+          error
+        );
+      }
+    );
   };
 
-  // 음악 생성
-  const handleGenerateMusic = async (
-    segmentId
-  ) => {
-    if (generatingId !== null) {
-      return;
-    }
 
-    const segment =
-      segments.find(
-        (item) =>
-          item.id === segmentId
-      );
+  // ============================================================
+  // 음악 생성 대상 컷
+  // ============================================================
 
-    if (!segment) {
-      return;
-    }
-
-    setGeneratingId(segmentId);
-
-    try {
-      /*
-       * 실제 음악 생성 API 연결 부분
-       *
-       * 나중에 Stable Audio 서버에
-       * 요청을 보내면 됨.
-       */
-
-      await new Promise(
-        (resolve) =>
-          setTimeout(resolve, 3000)
-      );
-
-      // 임시 테스트용 음악 URL
-      const demoAudioUrl =
-        'https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a7346e.mp3';
-
-      setGeneratedMusic((prev) => ({
-        ...prev,
-        [segmentId]: demoAudioUrl
-      }));
-
-    } catch (error) {
-      console.error(
-        'Music generation failed:',
-        error
-      );
-
-      alert(
-        '음악 생성 중 오류가 발생했습니다.'
-      );
-
-    } finally {
-      setGeneratingId(null);
-    }
-  };
-
-  // 음악 생성 대상으로 선택된 컷만
   const musicSegments =
     segments.filter(
       (segment) =>
@@ -121,7 +74,11 @@ const Page4 = ({
         )
     );
 
+
+  // ============================================================
   // 다음 단계
+  // ============================================================
+
   const handleNextStep = () => {
     if (
       musicSegments.length === 0
@@ -141,9 +98,11 @@ const Page4 = ({
           ]
       );
 
-    if (notGenerated.length > 0) {
+    if (
+      notGenerated.length > 0
+    ) {
       alert(
-        '모든 컷의 음악을 먼저 생성해 주세요.'
+        '모든 컷의 음악이 생성될 때까지 기다려 주세요.'
       );
 
       return;
@@ -154,23 +113,33 @@ const Page4 = ({
     );
   };
 
+
   return (
     <div className="page-container">
 
       <Header
-        onGoHome={onGoHome}
+        onGoHome={
+          onGoHome
+        }
       />
 
       <main className="content-container">
 
-        {/* 왼쪽: 영상 */}
+        {/* ======================================================
+            왼쪽: 영상
+        ====================================================== */}
+
         <section className="left-section">
 
           <UploadVideo
-            videoRef={videoRef}
+            videoRef={
+              videoRef
+            }
+
             initialPreviewUrl={
               videoPreviewUrl
             }
+
             selectedFile={
               selectedFile
             }
@@ -178,7 +147,11 @@ const Page4 = ({
 
         </section>
 
-        {/* 오른쪽: 음악 생성 */}
+
+        {/* ======================================================
+            오른쪽: 음악
+        ====================================================== */}
+
         <section className="right-section">
 
           <div className="music-section">
@@ -191,10 +164,39 @@ const Page4 = ({
 
               <p className="music-section-description">
                 컷과 Prompt를 확인하고
-                각 컷의 음악을 생성하세요.
+                생성된 음악을 확인하세요.
               </p>
 
             </div>
+
+
+            {/* ==================================================
+                전체 음악 생성 중
+            ================================================== */}
+
+            {isLoading && (
+              <div className="music-loading">
+                <div>
+                  🎵 음악 생성 중...
+                </div>
+
+                <div>
+                  잠시만 기다려 주세요.
+                </div>
+              </div>
+            )}
+
+
+            {/* ==================================================
+                에러
+            ================================================== */}
+
+            {error && (
+              <div className="music-error">
+                {error}
+              </div>
+            )}
+
 
             <div className="music-list">
 
@@ -206,48 +208,68 @@ const Page4 = ({
                 </div>
               ) : (
                 musicSegments.map(
-                  (segment) => (
-                    <div
-                      key={segment.id}
-                      onClick={() =>
-                        handleSegmentClick(
-                          segment.startTime
-                        )
-                      }
-                    >
+                  (segment) => {
 
-                      <Music
-                        segment={
-                          segment
-                        }
-                        prompt={
-                          prompts[
-                            segment.id
-                          ] || ''
-                        }
-                        isGenerating={
-                          generatingId ===
+                    const musicUrl =
+                      generatedMusic[
+                        segment.id
+                      ];
+
+                    const prompt =
+                      prompts[
+                        segment.id
+                      ] || '';
+
+                    const isGenerating =
+                      generatingId ===
+                      segment.id;
+
+                    const hasMusic =
+                      Boolean(
+                        musicUrl
+                      );
+
+                    return (
+                      <div
+                        key={
                           segment.id
                         }
-                        hasMusic={
-                          Boolean(
-                            generatedMusic[
-                              segment.id
-                            ]
+                        onClick={() =>
+                          handleSegmentClick(
+                            segment.startTime
                           )
                         }
-                        musicUrl={
-                          generatedMusic[
-                            segment.id
-                          ] || ''
-                        }
-                        onGenerate={
-                          handleGenerateMusic
-                        }
-                      />
+                      >
 
-                    </div>
-                  )
+                        <Music
+                          segment={
+                            segment
+                          }
+
+                          prompt={
+                            prompt
+                          }
+
+                          isGenerating={
+                            isGenerating
+                          }
+
+                          hasMusic={
+                            hasMusic
+                          }
+
+                          musicUrl={
+  generatedMusic[segment.id]?.url || ''
+}
+
+                          onGenerate={
+                            onGenerate
+                          }
+                        />
+
+                      </div>
+                    );
+                  }
                 )
               )}
 
@@ -255,14 +277,22 @@ const Page4 = ({
 
           </div>
 
-          {/* 단계 이동 버튼 */}
+
+          {/* ====================================================
+              단계 이동
+          ==================================================== */}
+
           <div className="step-button-container">
 
             <button
               className="previous-step-btn"
-              onClick={onGoPrevious}
+              onClick={() => {
+                // 현재 구조에서는
+                // 이전 단계 버튼을 사용하지 않는다.
+              }}
               disabled={
-                generatingId !== null
+                generatingId !==
+                null
               }
             >
               ← 이전 단계
@@ -270,9 +300,13 @@ const Page4 = ({
 
             <button
               className="next-step-btn"
-              onClick={handleNextStep}
+              onClick={
+                handleNextStep
+              }
               disabled={
-                generatingId !== null
+                isLoading ||
+                generatingId !==
+                  null
               }
             >
               다음 단계 →

@@ -8,8 +8,15 @@ import './page_5.css';
 const Page5 = ({
   videoPreviewUrl,
   generatedMusic,
+  finalVideoUrl,
+  finalVideoLoading,
+  finalVideoError,
+  onSave,
+  segments,
+  musicSelectedIds,
   onGoHome
 }) => {
+
   return (
     <div className="page-container">
 
@@ -20,15 +27,15 @@ const Page5 = ({
       <main className="page5-content">
 
         <Result
-          videoPreviewUrl={
-            videoPreviewUrl
-          }
-          generatedMusic={
-            generatedMusic
-          }
-          onGoHome={
-            onGoHome
-          }
+          videoPreviewUrl={videoPreviewUrl}
+          generatedMusic={generatedMusic}
+          segments={segments}
+          musicSelectedIds={musicSelectedIds}
+          finalVideoUrl={finalVideoUrl}
+          finalVideoLoading={finalVideoLoading}
+          finalVideoError={finalVideoError}
+          onSave={onSave}
+          onGoHome={onGoHome}
         />
 
       </main>
