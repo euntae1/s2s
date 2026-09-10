@@ -1,0 +1,104 @@
+.page-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.content-container {
+  display: flex;
+  flex: 1;
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 40px 20px;
+  gap: 40px;
+  align-items: flex-start;
+}
+
+.left-section,
+.right-section {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* 로딩바 */
+
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.loading-text {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #2563eb;
+}
+
+.loading-bar-wrapper {
+  width: 100%;
+  height: 10px;
+  background-color: #e2e8f0;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.loading-bar-fill {
+  width: 60%;
+  height: 100%;
+  background-color: #2563eb;
+  border-radius: 5px;
+  animation: loading-animation 1.8s infinite ease-in-out;
+}
+
+@keyframes loading-animation {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* 단계 이동 버튼 */
+
+.step-button-container {
+  width: 100%;
+  display: flex;
+  gap: 12px;
+}
+
+.previous-step-btn,
+.next-step-btn {
+  flex: 1;
+  padding: 15px;
+  border: none;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.previous-step-btn {
+  background-color: #e2e8f0;
+  color: #334155;
+}
+
+.previous-step-btn:hover {
+  background-color: #cbd5e1;
+}
+
+.next-step-btn {
+  background-color: #2563eb;
+  color: #ffffff;
+}
+
+.next-step-btn:hover {
+  background-color: #1d4ed8;
+}

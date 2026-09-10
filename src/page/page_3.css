@@ -1,0 +1,128 @@
+.page-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.content-container {
+  display: flex;
+  flex: 1;
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 40px 20px;
+  gap: 40px;
+  align-items: flex-start;
+}
+
+.left-section,
+.right-section {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Prompt 영역 */
+
+.prompt-section {
+  width: 100%;
+  height: 360px;
+  border: 1px solid #cbd5e1;
+  border-radius: 16px;
+  padding: 20px;
+  background-color: #ffffff;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+.prompt-section-title {
+  margin: 0 0 6px 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.prompt-section-description {
+  margin: 0 0 14px 0;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.prompt-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.prompt-item {
+  padding: 12px;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.prompt-item:hover {
+  background-color: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.prompt-time {
+  margin-bottom: 8px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #334155;
+}
+
+.empty-prompt {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  font-size: 0.95rem;
+}
+
+/* 단계 버튼 */
+
+.step-button-container {
+  width: 100%;
+  display: flex;
+  gap: 12px;
+}
+
+.previous-step-btn,
+.next-step-btn {
+  flex: 1;
+  padding: 15px;
+  border: none;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.previous-step-btn {
+  background-color: #e2e8f0;
+  color: #334155;
+}
+
+.previous-step-btn:hover {
+  background-color: #cbd5e1;
+}
+
+.next-step-btn {
+  background-color: #2563eb;
+  color: #ffffff;
+}
+
+.next-step-btn:hover {
+  background-color: #1d4ed8;
+}
