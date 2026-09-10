@@ -1,6 +1,6 @@
 import React from 'react';
 
-import Header from '../component/header';
+// ❌ import Header 삭제
 import Result from '../component/result';
 
 import './page_5.css';
@@ -20,9 +20,7 @@ const Page5 = ({
   return (
     <div className="page-container">
 
-      <Header
-        onGoHome={onGoHome}
-      />
+      {/* ❌ <Header onGoHome={onGoHome} /> 태그 삭제 */}
 
       <main className="page5-content">
 

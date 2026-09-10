@@ -4,7 +4,6 @@ import React, {
   useEffect
 } from 'react';
 
-import Header from '../component/header';
 import UploadVideo from '../component/upload_video';
 import Prompt from '../component/prompt';
 
@@ -175,11 +174,6 @@ const Page3 = ({
   return (
     <div className="page-container">
 
-      <Header
-        onGoHome={
-          onGoHome
-        }
-      />
 
 
       <main className="content-container">

@@ -325,155 +325,76 @@ const [finalVideoError, setFinalVideoError] = useState('');
   // → Colab 음악 생성
   // ============================================================
 
-  const handlePage3Next = async (
-    editedPrompts
-  ) => {
-    console.log(
-      '🎵 Page 3 → 음악 생성 시작'
-    );
+ // App.js 의 handlePage3Next 함수 수정
+const handlePage3Next = async (editedPrompts) => {
+  console.log('🎵 Page 3 → 음악 생성 시작');
+  console.log('📝 수정된 Prompt:', editedPrompts);
 
-    console.log(
-      '📝 수정된 Prompt:',
-      editedPrompts
-    );
+  if (!editedPrompts) {
+    return;
+  }
 
-    if (!editedPrompts) {
-      return;
-    }
-
-    const musicSegments =
-      segments.filter(
-        (segment) =>
-          musicSelectedIds.includes(
-            segment.id
-          )
-      );
-
-    if (
-      musicSegments.length === 0
-    ) {
-      alert(
-        '음악 생성 대상 컷이 없습니다.'
-      );
-      return;
-    }
-
-    setMusicGenerationLoading(
-      true
-    );
-
-    setMusicGenerationError(
-      null
-    );
-
-    setGeneratedMusic({});
-
-    // Page 4를 먼저 보여준다.
-    setCurrentPage(4);
-
-    try {
-      // Stable Audio는 GPU 모델이므로
-      // 여러 요청을 동시에 보내지 않고
-      // 한 곡씩 순차적으로 생성한다.
-
-      for (
-        const segment of musicSegments
-      ) {
-        const prompt =
-          editedPrompts[
-            segment.id
-          ];
-
-        if (
-          !prompt ||
-          !prompt.trim()
-        ) {
-          console.warn(
-            `⚠️ Scene ${segment.id} Prompt가 없습니다.`
-          );
-
-          continue;
-        }
-
-        const duration =
-          Number(
-            segment.endTime
-          ) -
-          Number(
-            segment.startTime
-          );
-
-        console.log(
-          '--------------------------------'
-        );
-
-        console.log(
-          `🎵 Scene ${segment.id} 음악 생성`
-        );
-
-        console.log(
-          '📝 Prompt:',
-          prompt
-        );
-
-        console.log(
-          '⏱️ Duration:',
-          duration
-        );
-
-        setMusicGeneratingId(
-          segment.id
-        );
-
-const result =
-  await generateMusic(
-    prompt,
-    duration
+  // 💡 [핵심 해결 방법] 사용자가 수정한 프롬프트로 scenePrompts 상태를 업데이트!
+  setScenePrompts((prevPrompts) =>
+    prevPrompts.map((item) => ({
+      ...item,
+      prompt: editedPrompts[item.id] !== undefined ? editedPrompts[item.id] : item.prompt
+    }))
   );
 
-setGeneratedMusic(
-  prev => ({
-    ...prev,
-    [segment.id]: {
-      url:
-        result.musicUrl,
+  const musicSegments = segments.filter((segment) =>
+    musicSelectedIds.includes(segment.id)
+  );
 
-      blob:
-        result.blob
-    }
-  })
-);
+  if (musicSegments.length === 0) {
+    alert('음악 생성 대상 컷이 없습니다.');
+    return;
+  }
 
-        console.log(
-          `✅ Scene ${segment.id} 음악 생성 완료`
-        );
+  setMusicGenerationLoading(true);
+  setMusicGenerationError(null);
+  setGeneratedMusic({});
+
+  // Page 4로 이동
+  setCurrentPage(4);
+
+  try {
+    for (const segment of musicSegments) {
+      const prompt = editedPrompts[segment.id];
+
+      if (!prompt || !prompt.trim()) {
+        console.warn(`⚠️ Scene ${segment.id} Prompt가 없습니다.`);
+        continue;
       }
 
-    } catch (error) {
-      console.error(
-        '❌ 음악 생성 실패:',
-        error
-      );
+      const duration =
+        Number(segment.endTime) - Number(segment.startTime);
 
-      setMusicGenerationError(
-        error.message ||
-          '음악 생성 중 오류가 발생했습니다.'
-      );
+      setMusicGeneratingId(segment.id);
 
-      alert(
-        '음악 생성 중 오류가 발생했습니다.'
-      );
+      const result = await generateMusic(prompt, duration);
 
-    } finally {
-      setMusicGeneratingId(
-        null
-      );
+      setGeneratedMusic((prev) => ({
+        ...prev,
+        [segment.id]: {
+          url: result.musicUrl,
+          blob: result.blob
+        }
+      }));
 
-      setMusicGenerationLoading(
-        false
-      );
+      console.log(`✅ Scene ${segment.id} 음악 생성 완료`);
     }
-  };
+  } catch (error) {
+    console.error('❌ 음악 생성 실패:', error);
+    setMusicGenerationError(
+      error.message || '음악 생성 중 오류가 발생했습니다.'
+    );
+    alert('음악 생성 중 오류가 발생했습니다.');
+  } finally {
+    setMusicGeneratingId(null);
+    setMusicGenerationLoading(false);
+  }
+};
 // page4 -> page5
 const handlePage4Next = () => {
   console.log('🎬 Page 4 → Page 5 이동');
@@ -642,7 +563,9 @@ const handlePage4Next = () => {
   const handleGoHome = () => {
     setCurrentPage(1);
   };
-
+const handleGoPrevious = () => {
+  setCurrentPage((prev) => Math.max(1, prev - 1));
+};
 
   return (
     <div className="app">
@@ -697,6 +620,7 @@ const handlePage4Next = () => {
           onGoNext={
             handlePage2Next
           }
+          onGoPrevious={handleGoPrevious} /* 👈 추가 */
         />
       )}
 
@@ -746,6 +670,7 @@ const handlePage4Next = () => {
           onGoHome={
             handleGoHome
           }
+          onGoPrevious={handleGoPrevious} /* 👈 추가 */
         />
       )}
 
@@ -808,6 +733,7 @@ const handlePage4Next = () => {
           }
 
           onGoNext={handlePage4Next}
+          onGoPrevious={handleGoPrevious} /* 👈 추가 */
         />
       )}
 
