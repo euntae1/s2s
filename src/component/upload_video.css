@@ -1,0 +1,107 @@
+.upload-box-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+.upload-box {
+  width: 100%;
+  height: 360px;
+  border: 2px dashed #cbd5e1;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #f8fafc;
+  cursor: pointer;
+  overflow: hidden;
+  position: relative;
+  transition: all 0.2s ease-in-out;
+}
+
+.upload-box.dragging {
+  border-color: #2563eb;
+  background-color: #eff6ff;
+}
+
+.upload-label {
+  cursor: pointer;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.upload-icon {
+  font-size: 2.5rem;
+}
+
+.upload-text {
+  color: #64748b;
+  font-size: 1.05rem;
+  margin: 0;
+}
+
+.upload-browse-btn {
+  margin-top: 6px;
+  color: #2563eb;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+/* 비디오 미리보기 컨테이너 및 X 버튼 스타일 */
+.video-preview-wrapper {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.remove-video-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 10;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background-color: rgba(15, 23, 42, 0.75);
+  color: #ffffff;
+  border: none;
+  font-size: 1rem;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.remove-video-btn:hover {
+  background-color: #ef4444; /* 마우스 올렸을 때 빨간색 강조 */
+  transform: scale(1.08);
+}
+
+.video-preview {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background-color: #000000;
+}
+
+.upload-btn {
+  padding: 16px;
+  border: none;
+  border-radius: 10px;
+  background-color: #2563eb;
+  color: white;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.upload-btn:hover {
+  background-color: #1d4ed8;
+}

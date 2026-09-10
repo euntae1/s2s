@@ -1,0 +1,53 @@
+.page-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.content-container {
+  display: flex;
+  flex: 1;
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 40px 20px;
+  gap: 40px;
+  align-items: center;
+}
+
+.left-section,
+.right-section {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px; /* 우측 영역 간격과 동일하게 유지 */
+}
+
+/* 1. 업로드 박스(360px)와 동일한 높이의 로고 영역 */
+.logo-box {
+  width: 100%;
+  height: 360px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: transparent;
+}
+
+.main-logo-large {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* 2. 박스 제거 후 깔끔한 글씨만 배치 (우측 버튼과의 균형감 유지) */
+.main-brand-text {
+  width: 100%;
+  margin: 0;
+  padding: 12px 0; /* 우측 버튼의 높이감과 비슷하도록 상하 여백만 부여 */
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: #0f172a;
+  text-align: center;
+  letter-spacing: -0.5px;
+}
