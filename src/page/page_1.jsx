@@ -1,14 +1,11 @@
 import React from 'react';
-import Header from '../component/header';
 import UploadVideo from '../component/upload_video';
 import logoImg from '../component/logo.png';
 import './page_1.css';
 
-const Page1 = () => {
+const Page1 = ({ onNext }) => {
   return (
     <div className="page-container">
-      <Header />
-
       <main className="content-container">
         {/* 왼쪽 영역: 로고 이미지 + 박스 없는 글씨 */}
         <section className="left-section">
@@ -22,7 +19,7 @@ const Page1 = () => {
 
         {/* 오른쪽 영역: 업로드 박스 + 버튼 */}
         <section className="right-section">
-          <UploadVideo />
+          <UploadVideo onNext={onNext} />
         </section>
       </main>
     </div>
