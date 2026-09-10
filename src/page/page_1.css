@@ -22,7 +22,7 @@
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 16px; /* 우측 영역 간격과 동일하게 유지 */
+  gap: 8px; /* 우측 영역 간격과 동일하게 유지 */
 }
 
 /* 1. 업로드 박스(360px)와 동일한 높이의 로고 영역 */
@@ -45,8 +45,8 @@
 .main-brand-text {
   width: 100%;
   margin: 0;
-  padding: 12px 0; /* 우측 버튼의 높이감과 비슷하도록 상하 여백만 부여 */
-  font-size: 1.8rem;
+  padding: 8px 0; /* 우측 버튼의 높이감과 비슷하도록 상하 여백만 부여 */
+  font-size: 2.4rem;
   font-weight: 800;
   color: #0f172a;
   text-align: center;
