@@ -1,5 +1,6 @@
 .page-container {
-  min-height: 100vh;
+  min-height: calc(100vh - 73px);
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
 }
