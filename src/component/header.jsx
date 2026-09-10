@@ -7,7 +7,7 @@ const Header = () => {
     <header className="header">
       <div className="header-brand">
         <img src={logoImg} alt="Logo" className="header-logo-small" />
-        <span className="header-title">Scene to sound</span>
+        <span className="header-title">Scene to Sound</span>
       </div>
     </header>
   );
