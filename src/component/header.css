@@ -9,17 +9,17 @@
 .header-brand {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 5px;
 }
 
 .header-logo-small {
-  width: 28px;
-  height: 28px;
+  width: 60px;
+  height: 40px;
   object-fit: contain;
 }
 
 .header-title {
-  font-size: 1.35rem;
+  font-size: 1.5rem;
   font-weight: 800;
   color: #0f172a;
   letter-spacing: -0.5px;
