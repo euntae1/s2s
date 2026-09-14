@@ -52,10 +52,13 @@ const Page2 = ({
   // 서버에서 컷 분석 결과가 들어오면 Page 2에 반영
   // ============================================================
 
-  useEffect(() => {
-    setSegments(initialSegments);
-  }, [initialSegments]);
+useEffect(() => {
+  setSegments(initialSegments);
 
+  setMusicSelectedIds(
+    initialSegments.map((seg) => seg.id)
+  );
+}, [initialSegments]);
 
   // ============================================================
   // 초기 음악 생성 선택 상태 반영
