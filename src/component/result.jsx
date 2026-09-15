@@ -215,6 +215,9 @@ const Result = ({
       /*
        * FFmpeg filter 생성
        */
+      /*
+       * FFmpeg filter 생성 (음소거 영상 지원 처리)
+       */
       setProcessingMessage('장면별 음악을 영상에 배치하는 중입니다...');
       const filterParts = [];
 
@@ -232,26 +235,19 @@ const Result = ({
         );
       });
 
-      const musicLabels = musicFiles
-        .map((_, index) => `[music${index}]`)
-        .join('');
+      // 생성된 음악 레이블 목록
+      const musicLabels = musicFiles.map((_, i) => `[music${i}]`).join('');
 
-      const mixInputs = `[0:a]` + musicLabels;
-
+      // 💡 [핵심] 1개 이상의 음악만 믹스 (원본 영상 소리는 무시하고 코랩 생성 음악만 합성)
+      // 만약 원본 영상 소리도 섞고 싶다면 입력 수(inputs)와 [0:a] 연동 필요
       const audioFilter =
-        `${mixInputs}` +
-        `amix=inputs=${musicFiles.length + 1}:` +
-        `duration=longest:` +
-        `dropout_transition=0:` +
-        `normalize=0,` +
-        `alimiter=limit=0.95` +
-        `[finalaudio]`;
+        musicFiles.length === 1
+          ? `${musicLabels}anull[finalaudio]`
+          : `\({musicLabels}amix=inputs=\){musicFiles.length}:duration=longest:dropout_transition=0:normalize=0,alimiter=limit=0.95[finalaudio]`;
 
       filterParts.push(audioFilter);
 
       const filterComplex = filterParts.join(';');
-
-      console.log('🎬 FFmpeg filter:', filterComplex);
 
       /*
        * 최종 영상 생성
@@ -264,13 +260,15 @@ const Result = ({
         args.push('-i', music.fileName);
       });
 
+      // 기존: '-map', '0:v:0', '-map', '[finalaudio]'
+      // 수정 후:
       args.push(
         '-filter_complex',
         filterComplex,
         '-map',
-        '0:v:0',
+        '0:v:0?',          // 👈 ?를 붙여 비디오 스트림이 없거나 다를 때 오류 방지
         '-map',
-        '[finalaudio]',
+        '[finalaudio]',   // 👈 생성된 음악 합본 오디오 맵핑
         '-c:v',
         'copy',
         '-c:a',
@@ -282,7 +280,6 @@ const Result = ({
         '+faststart',
         'output.mp4'
       );
-
       console.log('🎬 FFmpeg 실행:', args);
 
       const exitCode = await ffmpeg.exec(args);

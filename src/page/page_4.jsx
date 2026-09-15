@@ -20,7 +20,8 @@ const Page4 = ({
   error = '',
   onGenerate,
   onGoNext,
-  onGoHome
+  onGoHome,
+  onGoPrevious
 }) => {
   const videoRef = useRef(null);
 
