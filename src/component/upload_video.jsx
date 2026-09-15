@@ -1,136 +1,119 @@
 import React, { useState, useEffect } from 'react';
+import JSZip from 'jszip';
 import './upload_video.css';
 
 const UploadVideo = ({ onNext, initialPreviewUrl = '', videoRef }) => {
   const [selectedFile, setSelectedFile] = useState(null);
-  const [compressedFile, setCompressedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(initialPreviewUrl);
   const [isDragging, setIsDragging] = useState(false);
-  const [isCompressing, setIsCompressing] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
     setPreviewUrl(initialPreviewUrl);
   }, [initialPreviewUrl]);
 
-  // ------------------------------------------------------------
-  // 순수 브라우저 API(Canvas + MediaRecorder) 기반 동영상 압축 (480p, 15fps)
-  // ------------------------------------------------------------
-  const compressVideoWithCanvas = (file) => {
+  // 비디오를 0.5초 간격 정밀 이미지 프레임으로 추출하여 ZIP 바이너리로 반환
+  const extractFramesToZip = (file) => {
     return new Promise((resolve, reject) => {
-      setIsCompressing(true);
-      setProgress(0);
-
       const video = document.createElement('video');
       video.src = URL.createObjectURL(file);
       video.muted = true;
       video.playsInline = true;
 
-      video.onloadedmetadata = () => {
-        // 480p 해상도 스케일링 계산
-        const targetWidth = 480;
-        const scale = targetWidth / video.videoWidth;
-        const targetHeight = Math.round(video.videoHeight * scale);
+      video.onloadedmetadata = async () => {
+        try {
+          const targetWidth = 480;
+          const scale = targetWidth / video.videoWidth;
+          const targetHeight = Math.round(video.videoHeight * scale);
 
-        const canvas = document.createElement('canvas');
-        canvas.width = targetWidth;
-        canvas.height = targetHeight;
-        const ctx = canvas.getContext('2d');
+          const canvas = document.createElement('canvas');
+          canvas.width = targetWidth;
+          canvas.height = targetHeight;
+          const ctx = canvas.getContext('2d');
 
-        // Canvas 스트림 추출 (15 fps 설정)
-        const stream = canvas.captureStream(15);
-        
-        let mimeType = 'video/webm';
-        if (!MediaRecorder.isTypeSupported('video/webm')) {
-          mimeType = 'video/mp4';
-        }
+          const zip = new JSZip();
+          const duration = video.duration;
+          const sampleInterval = 0.5;
+          let currentTime = 0;
+          let frameIndex = 0;
 
-        const recorder = new MediaRecorder(stream, {
-          mimeType,
-          videoBitsPerSecond: 500000 // 500kbps (분석용 경량화)
-        });
-
-        const chunks = [];
-        recorder.ondataavailable = (e) => {
-          if (e.data && e.data.size > 0) chunks.push(e.data);
-        };
-
-        recorder.onstop = () => {
-          const blob = new Blob(chunks, { type: mimeType });
-          const compressedFileObj = new File(
-            [blob],
-            `compressed_\({file.name.replace(/\.[^/.]+\)/, '')}.${mimeType === 'video/webm' ? 'webm' : 'mp4'}`,
-            { type: mimeType }
-          );
-          
-          setIsCompressing(false);
-          setProgress(100);
-          console.log(`✅ 브라우저 압축 완료: \({(file.size / 1024 / 1024).toFixed(2)}MB ->\){(compressedFileObj.size / 1024 / 1024).toFixed(2)}MB`);
-          resolve(compressedFileObj);
-        };
-
-        // 비디오 재생 시작 및 프레임 렌더링
-        video.play().then(() => {
-          recorder.start();
-
-          const processFrame = () => {
-            if (video.ended || video.paused) {
-              if (recorder.state !== 'inactive') recorder.stop();
-              return;
-            }
-
-            ctx.drawImage(video, 0, 0, targetWidth, targetHeight);
-            
-            const currentProgress = Math.min(
-              100,
-              Math.round((video.currentTime / video.duration) * 100)
-            );
-            setProgress(isNaN(currentProgress) ? 0 : currentProgress);
-
-            requestAnimationFrame(processFrame);
+          const seekToTime = (targetTime) => {
+            return new Promise((res) => {
+              const onSeeked = () => {
+                video.removeEventListener('seeked', onSeeked);
+                res();
+              };
+              video.addEventListener('seeked', onSeeked);
+              video.currentTime = targetTime;
+            });
           };
 
-          processFrame();
-        }).catch((err) => {
-          setIsCompressing(false);
+          const framePromises = [];
+
+          while (currentTime < duration) {
+            await seekToTime(currentTime);
+            ctx.drawImage(video, 0, 0, targetWidth, targetHeight);
+
+            // 따옴표 깨짐 방지를 위한 일반 문자열 결합 방식 (고유 파일명 보장)
+            const paddedIndex = String(frameIndex).padStart(4, '0');
+            const timeStr = currentTime.toFixed(2);
+            const filename = 'frame_' + paddedIndex + '_' + timeStr + 's.jpg';
+
+            const framePromise = new Promise((resBlob) => {
+              canvas.toBlob(
+                (blob) => {
+                  zip.file(filename, blob);
+                  resBlob();
+                },
+                'image/jpeg',
+                0.8
+              );
+            });
+
+            framePromises.push(framePromise);
+
+            frameIndex++;
+            currentTime += sampleInterval;
+
+            const currentProgress = Math.min(100, Math.round((currentTime / duration) * 100));
+            setProgress(currentProgress);
+          }
+
+          await Promise.all(framePromises);
+
+          zip.file('meta.json', JSON.stringify({ duration: duration, total_frames: frameIndex }));
+
+          const content = await zip.generateAsync({ type: 'blob' });
+          
+          // ZIP 파일명 생성도 안전한 문자열 결합 적용
+          const cleanName = file.name.replace(/\.[^/.]+$/, '');
+          const zipFileName = 'frames_' + cleanName + '.zip';
+          const zipFile = new File([content], zipFileName, { type: 'application/zip' });
+
+          console.log('✅ 브라우저 추출 완벽 성공: 총 ' + frameIndex + '개 프레임 패킹 완료');
+          resolve(zipFile);
+        } catch (err) {
           reject(err);
-        });
+        }
       };
 
       video.onerror = (err) => {
-        setIsCompressing(false);
         reject(err);
       };
     });
   };
 
-  // ------------------------------------------------------------
-  // 파일 처리 및 압축 트리거
-  // ------------------------------------------------------------
-  const processFile = async (file) => {
+  const processFile = (file) => {
     if (file && file.type.startsWith('video/')) {
       setSelectedFile(file);
-      setCompressedFile(null);
-
       const url = URL.createObjectURL(file);
       setPreviewUrl(url);
-
-      try {
-        const compressed = await compressVideoWithCanvas(file);
-        setCompressedFile(compressed);
-      } catch (error) {
-        console.error('⚠️ Canvas 압축 실패, 원본 파일 사용:', error);
-        setCompressedFile(file);
-        setIsCompressing(false);
-      }
     } else {
       alert('동영상 파일(.mp4, .mov 등)만 업로드 가능합니다.');
     }
   };
 
-  // ------------------------------------------------------------
-  // 이벤트 핸들러
-  // ------------------------------------------------------------
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files[0]) {
       processFile(e.target.files[0]);
@@ -155,32 +138,36 @@ const UploadVideo = ({ onNext, initialPreviewUrl = '', videoRef }) => {
     }
   };
 
-  // ------------------------------------------------------------
-  // 업로드 / 다음 단계 진행
-  // ------------------------------------------------------------
-  const handleUpload = () => {
-    if (isCompressing) return;
+  // '음악 생성 시작하기' 버튼을 누를 때 즉시 실시간 압축 및 백엔드 전송 진행
+  const handleUpload = async () => {
+    if (isProcessing) return;
 
     if (!selectedFile && !previewUrl) {
       alert('업로드할 동영상을 선택해 주세요.');
       return;
     }
 
-    const finalFile = compressedFile || selectedFile;
+    try {
+      setIsProcessing(true);
+      setProgress(0);
 
-    if (!finalFile) {
-      alert('분석할 동영상 파일을 다시 선택해 주세요.');
-      return;
-    }
+      // 업로드 클릭 시점에 실시간으로 정밀 ZIP 생성
+      const zipFile = await extractFramesToZip(selectedFile);
 
-    if (onNext) {
-      onNext(previewUrl, finalFile);
+      setIsProcessing(false);
+      setProgress(100);
+
+      if (onNext) {
+        // 완벽히 생성된 ZIP 파일을 벡엔드로 전송
+        onNext(previewUrl, zipFile);
+      }
+    } catch (error) {
+      console.error('프레임 압축 처리 오류:', error);
+      alert('영상 처리 중 오류가 발생했습니다.');
+      setIsProcessing(false);
     }
   };
 
-  // ------------------------------------------------------------
-  // 렌더링
-  // ------------------------------------------------------------
   return (
     <div className="upload-box-container">
       <div
@@ -197,7 +184,7 @@ const UploadVideo = ({ onNext, initialPreviewUrl = '', videoRef }) => {
               controls
               className="video-preview"
             />
-            {isCompressing && (
+            {isProcessing && (
               <div
                 className="compression-overlay"
                 style={{
@@ -213,7 +200,7 @@ const UploadVideo = ({ onNext, initialPreviewUrl = '', videoRef }) => {
                   zIndex: 10
                 }}
               >
-                <p style={{ marginBottom: '8px', fontWeight: 'bold' }}>업로드 중...</p>
+                <p style={{ marginBottom: '8px', fontWeight: 'bold' }}>프레임 분석 패킹 중...</p>
                 <div
                   style={{
                     width: '70%',
@@ -257,14 +244,13 @@ const UploadVideo = ({ onNext, initialPreviewUrl = '', videoRef }) => {
         <button
           className="upload-btn"
           onClick={handleUpload}
-          disabled={isCompressing}
+          disabled={isProcessing}
           style={{
-            opacity: isCompressing ? 0.5 : 1,
-            cursor: isCompressing ? 'not-allowed' : 'pointer',
-            backgroundColor: isCompressing ? '#888' : undefined
+            opacity: isProcessing ? 0.5 : 1,
+            cursor: isProcessing ? 'not-allowed' : 'pointer'
           }}
         >
-          {isCompressing ? `업로드 중... (${progress}%)` : '음악 생성 시작하기'}
+          {isProcessing ? `전송 준비 중... (${progress}%)` : '음악 생성 시작하기'}
         </button>
       )}
     </div>

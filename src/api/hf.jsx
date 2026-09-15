@@ -5,15 +5,12 @@ const COLAB_API_URL = 'https://shorthand-suitcase-undergo.ngrok-free.dev';
  * 1. 컷 분할 분석 요청 (원본 영상 전송 -> 타임로그 및 session_id 획득)
  */
 export const analyzeVideoCuts = async (file) => {
-  if (!file) {
-    throw new Error('분석할 동영상 파일이 없습니다.');
-  }
+  if (!file) throw new Error('분석할 파일이 없습니다.');
 
-  console.log('🚀 Hugging Face 컷 분할 요청 시작');
-  console.log('📡 요청 주소:', HF_API_URL + '/predict');
+  console.log('📡 전송 대상 파일 정보:', file.name, '크기:', (file.size / 1024).toFixed(2) + ' KB');
 
   const formData = new FormData();
-  formData.append('video', file);
+  formData.append('video', file); // <-- 여기서 넘어온 file의 size가 몇 KB인지 콘솔 확인!
 
   const response = await fetch(HF_API_URL + '/predict', {
     method: 'POST',
@@ -230,7 +227,7 @@ export const composeFinalVideo = async (videoFile, tracks) => {
 
   const videoUrl = URL.createObjectURL(blob);
 
-  return {
+  return {  
     videoUrl,
     blob
   };
