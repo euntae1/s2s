@@ -72,10 +72,10 @@ function App() {
       const startTime = performance.now();
       const result = await analyzeVideoCuts(file);
       const endTime = performance.now();
-      const elapsedTime = (endTime - startTime) / 1000;
+      const elapsedTime = Number(((endTime - startTime) / 1000).toFixed(2));
 
       console.log('✂️ 컷 분할 결과:', result);
-      console.log(`⏱️ 실제 소요 시간: ${elapsedTime.toFixed(2)}초`);
+      console.log(`⏱️ 실제 소요 시간: ${elapsedTime}초`);
 
       const newSegments = (result.timelogs || []).map((item) => ({
         id: String(item.id),
@@ -84,7 +84,8 @@ function App() {
       }));
 
       setSegments(newSegments);
-      setPage2InferenceTime(result.inferenceTime);
+      // 백엔드 추론시간(result.inferenceTime) 대신 클라이언트 실제 소요시간 전달
+      setPage2InferenceTime(elapsedTime);
     } catch (error) {
       console.error('❌ 컷 분할 실패:', error);
       setPage2Error(error.message || '컷 분할에 실패했습니다.');
@@ -94,7 +95,7 @@ function App() {
   };
 
   // ============================================================
-  // Page 2 → Page 3 (수정된 핵심 부분)
+  // Page 2 → Page 3
   // ============================================================
   const handlePage2Next = async ({
     segments: currentSegments,
@@ -107,10 +108,6 @@ function App() {
     }
 
     console.log('🎵 Page 2 → Page 3');
-    console.log('✂️ 병합 반영된 Segments:', currentSegments);
-    console.log('🎵 음악 생성 선택 ID:', currentMusicSelectedIds);
-
-    // 💡 [핵심 수정 1] Page 2에서 전달받은 병합된 segments state를 App.js에 즉시 업데이트!
     setSegments(currentSegments);
     setMusicSelectedIds(currentMusicSelectedIds);
 
@@ -120,8 +117,6 @@ function App() {
       endTime: segment.endTime,
       musicSelected: currentMusicSelectedIds.map(String).includes(String(segment.id))
     }));
-
-    console.log('📋 Signal 1 전송 데이터:', timelogs);
 
     setPage3Loading(true);
     setPage3InferenceTime(null);
@@ -134,11 +129,10 @@ function App() {
       const startTime = performance.now();
       const result = await generateScenePrompts(selectedFile, timelogs);
       const endTime = performance.now();
+      const elapsedTime = Number(((endTime - startTime) / 1000).toFixed(2));
 
-      console.log(`⏱️ Gemini 전체 처리 시간: ${((endTime - startTime) / 1000).toFixed(2)}초`);
-      console.log('🤖 Gemini 응답 원본:', result);
+      console.log(`⏱️ 실제 Gemini 소요 시간: ${elapsedTime}초`);
 
-      // 💡 [핵심 수정 2] 서버 응답 배열을 프런트엔드의 병합된 ID(timelogs[idx].id)와 매핑
       const mappedPrompts = (result.timelogs || []).map((item, index) => {
         const targetLog = timelogs[index];
         return {
@@ -150,10 +144,9 @@ function App() {
         };
       });
 
-      console.log('✨ 최종 매핑 완료된 Scene Prompts:', mappedPrompts);
-
       setScenePrompts(mappedPrompts);
-      setPage3InferenceTime(result.inferenceTime);
+      // 백엔드 추론시간 대신 클라이언트 실제 소요시간 전달
+      setPage3InferenceTime(elapsedTime);
     } catch (error) {
       console.error('❌ Gemini 프롬프트 생성 실패:', error);
       setPage3Error(error.message || 'Gemini 프롬프트 생성에 실패했습니다.');
@@ -166,9 +159,6 @@ function App() {
   // Page 3 → Page 4
   // ============================================================
   const handlePage3Next = async (editedPrompts) => {
-    console.log('🎵 Page 3 → 음악 생성 시작');
-    console.log('📝 수정된 Prompt:', editedPrompts);
-
     if (!editedPrompts) return;
 
     setScenePrompts((prevPrompts) =>
@@ -197,10 +187,7 @@ function App() {
       for (const segment of musicSegments) {
         const prompt = editedPrompts[segment.id];
 
-        if (!prompt || !prompt.trim()) {
-          console.warn(`⚠️ Scene ${segment.id} Prompt가 없습니다.`);
-          continue;
-        }
+        if (!prompt || !prompt.trim()) continue;
 
         const duration = Number(segment.endTime) - Number(segment.startTime);
 
@@ -215,8 +202,6 @@ function App() {
             blob: result.blob
           }
         }));
-
-        console.log(`✅ Scene ${segment.id} 음악 생성 완료`);
       }
     } catch (error) {
       console.error('❌ 음악 생성 실패:', error);
@@ -229,8 +214,6 @@ function App() {
   };
 
   const handlePage4Next = () => {
-    console.log('🎬 Page 4 → Page 5 이동');
-
     if (!selectedFile) {
       alert('원본 동영상이 없습니다.');
       return;
@@ -291,8 +274,6 @@ function App() {
           }
         };
       });
-
-      console.log(`✅ Scene ${segmentId} 음악 교체 완료`);
     } catch (error) {
       console.error('❌ 음악 재생성 실패:', error);
       setMusicGenerationError(error.message || '음악 재생성 중 오류가 발생했습니다.');
@@ -307,192 +288,74 @@ function App() {
 
   return (
     <div className="app">
-
-      <Header
-        onGoHome={
-          handleGoHome
-        }
-      />
-
-
-      {/* ======================================================
-          Page 1
-      ====================================================== */}
+      <Header onGoHome={handleGoHome} />
 
       {currentPage === 1 && (
-        <Page1
-          onNext={
-            handleGoNext
-          }
-        />
+        <Page1 onNext={handleGoNext} />
       )}
-
-
-      {/* ======================================================
-          Page 2
-      ====================================================== */}
 
       {currentPage === 2 && (
         <Page2
-          videoPreviewUrl={
-            videoPreviewUrl
-          }
-          selectedFile={
-            selectedFile
-          }
-          initialSegments={
-            segments
-          }
-          initialMusicSelectedIds={
-            musicSelectedIds
-          }
-          isLoading={
-            page2Loading
-          }
-          inferenceTime={
-            page2InferenceTime
-          }
-          error={
-            page2Error
-          }
-          onGoNext={
-            handlePage2Next
-          }
-          onGoPrevious={handleGoPrevious} /* 👈 추가 */
+          videoPreviewUrl={videoPreviewUrl}
+          selectedFile={selectedFile}
+          initialSegments={segments}
+          initialMusicSelectedIds={musicSelectedIds}
+          isLoading={page2Loading}
+          inferenceTime={page2InferenceTime}
+          error={page2Error}
+          onGoNext={handlePage2Next}
+          onGoPrevious={handleGoPrevious}
         />
       )}
-
-
-      {/* ======================================================
-          Page 3
-      ====================================================== */}
 
       {currentPage === 3 && (
         <Page3
-          videoPreviewUrl={
-            videoPreviewUrl
-          }
-
-          selectedFile={
-            selectedFile
-          }
-
-          segments={
-            segments
-          }
-
-          musicSelectedIds={
-            musicSelectedIds
-          }
-
-          scenePrompts={
-            scenePrompts
-          }
-
-          isLoading={
-            page3Loading
-          }
-
-          inferenceTime={
-            page3InferenceTime
-          }
-
-          error={
-            page3Error
-          }
-
-          onGoNext={
-            handlePage3Next
-          }
-
-          onGoHome={
-            handleGoHome
-          }
-          onGoPrevious={handleGoPrevious} /* 👈 추가 */
+          videoPreviewUrl={videoPreviewUrl}
+          selectedFile={selectedFile}
+          segments={segments}
+          musicSelectedIds={musicSelectedIds}
+          scenePrompts={scenePrompts}
+          isLoading={page3Loading}
+          inferenceTime={page3InferenceTime}
+          error={page3Error}
+          onGoNext={handlePage3Next}
+          onGoHome={handleGoHome}
+          onGoPrevious={handleGoPrevious}
         />
       )}
-
-
-      {/* ======================================================
-          Page 4
-      ====================================================== */}
 
       {currentPage === 4 && (
         <Page4
-          videoPreviewUrl={
-            videoPreviewUrl
-          }
-
-          selectedFile={
-            selectedFile
-          }
-
-          segments={
-            segments
-          }
-
-          musicSelectedIds={
-            musicSelectedIds
-          }
-
-          prompts={
-            Object.fromEntries(
-              scenePrompts.map(
-                (item) => [
-                  item.id,
-                  item.prompt
-                ]
-              )
-            )
-          }
-
-          generatedMusic={
-            generatedMusic
-          }
-
-          generatingId={
-            musicGeneratingId
-          }
-
-          isLoading={
-            musicGenerationLoading
-          }
-
-          error={
-            musicGenerationError
-          }
-
-          onGenerate={
-            handleRegenerateMusic
-          }
-
-          onGoHome={
-            handleGoHome
-          }
-
+          videoPreviewUrl={videoPreviewUrl}
+          selectedFile={selectedFile}
+          segments={segments}
+          musicSelectedIds={musicSelectedIds}
+          prompts={Object.fromEntries(
+            scenePrompts.map((item) => [item.id, item.prompt])
+          )}
+          generatedMusic={generatedMusic}
+          generatingId={musicGeneratingId}
+          isLoading={musicGenerationLoading}
+          error={musicGenerationError}
+          onGenerate={handleRegenerateMusic}
+          onGoHome={handleGoHome}
           onGoNext={handlePage4Next}
-          onGoPrevious={handleGoPrevious} /* 👈 추가 */
+          onGoPrevious={handleGoPrevious}
         />
       )}
 
-
-      {/* ======================================================
-          Page 5
-      ====================================================== */}
-
       {currentPage === 5 && (
         <Page5
-  videoPreviewUrl={videoPreviewUrl}
-  generatedMusic={generatedMusic}
-  finalVideoUrl={finalVideoUrl}
-  finalVideoLoading={finalVideoLoading}
-  finalVideoError={finalVideoError}
-  onGoHome={handleGoHome}
-  segments={segments}
-musicSelectedIds={musicSelectedIds}
-/>
+          videoPreviewUrl={videoPreviewUrl}
+          generatedMusic={generatedMusic}
+          finalVideoUrl={finalVideoUrl}
+          finalVideoLoading={finalVideoLoading}
+          finalVideoError={finalVideoError}
+          onGoHome={handleGoHome}
+          segments={segments}
+          musicSelectedIds={musicSelectedIds}
+        />
       )}
-
     </div>
   );
 }

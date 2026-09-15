@@ -75,14 +75,13 @@ const Result = ({
   };
 
   /*
-   * 음악 Blob 가져오기 (데이터 타입 및 다양한 객체 구조 대응)
+   * 음악 Blob 가져오기
    */
   const getMusicBlob = async (music) => {
     if (!music) {
       throw new Error('음악 데이터가 없습니다.');
     }
 
-    // 1. 이미 Blob 구조인 경우
     if (music instanceof Blob) {
       return music;
     }
@@ -91,7 +90,6 @@ const Result = ({
       return music.blob;
     }
 
-    // 2. 음악 URL 추출 (문자열, { musicUrl }, { url } 형태 모두 추출)
     let url = null;
 
     if (typeof music === 'string') {
@@ -104,7 +102,6 @@ const Result = ({
       url = music.musicUrl.url;
     }
 
-    // URL이 정상적으로 확보되었으면 fetch
     if (url) {
       const response = await fetch(url);
       if (!response.ok) {
@@ -113,7 +110,6 @@ const Result = ({
       return await response.blob();
     }
 
-    // 3. ArrayBuffer인 경우
     if (music instanceof ArrayBuffer) {
       return new Blob([music], { type: 'audio/wav' });
     }
@@ -146,25 +142,16 @@ const Result = ({
     setPlayError(false);
 
     try {
-      /*
-       * FFmpeg 안전 로드
-       */
       const ffmpeg = await loadFFmpeg();
 
-      /*
-       * 원본 영상 저장
-       */
       setProcessingMessage('원본 영상을 불러오는 중입니다...');
       await ffmpeg.writeFile(
         'input.mp4',
         await fetchFile(videoPreviewUrl)
       );
 
-      /*
-       * 음악이 적용되는 구간 정렬
-       */
       const selectedSegments = segments
-        .filter((segment) => musicSelectedIds.includes(segment.id))
+        .filter((segment) => musicSelectedIds.map(String).includes(String(segment.id)))
         .sort((a, b) => Number(a.startTime) - Number(b.startTime));
 
       if (selectedSegments.length === 0) {
@@ -173,9 +160,6 @@ const Result = ({
 
       console.log('🎵 음악 적용 구간:', selectedSegments);
 
-      /*
-       * 음악 파일 저장
-       */
       setProcessingMessage('생성된 음악을 불러오는 중입니다...');
       const musicFiles = [];
 
@@ -204,20 +188,8 @@ const Result = ({
           startTime,
           duration
         });
-
-        console.log(
-          `🎵 Scene ${segment.id}`,
-          `${startTime}s ~ ${endTime}s`,
-          `(${duration}s)`
-        );
       }
 
-      /*
-       * FFmpeg filter 생성
-       */
-      /*
-       * FFmpeg filter 생성 (음소거 영상 지원 처리)
-       */
       setProcessingMessage('장면별 음악을 영상에 배치하는 중입니다...');
       const filterParts = [];
 
@@ -226,32 +198,27 @@ const Result = ({
         const duration = Math.max(0.01, music.duration);
 
         filterParts.push(
-          `[${index + 1}:a]` +
-            `atrim=0:${duration},` +
-            `asetpts=PTS-STARTPTS,` +
-            `adelay=${delay}:all=1,` +
-            `volume=0.8` +
-            `[music${index}]`
+          '[' + (index + 1) + ':a]' +
+            'atrim=0:' + duration + ',' +
+            'asetpts=PTS-STARTPTS,' +
+            'adelay=' + delay + ':all=1,' +
+            'volume=0.8' +
+            '[music' + index + ']'
         );
       });
 
-      // 생성된 음악 레이블 목록
-      const musicLabels = musicFiles.map((_, i) => `[music${i}]`).join('');
+      const musicLabels = musicFiles.map((_, i) => '[music' + i + ']').join('');
 
-      // 💡 [핵심] 1개 이상의 음악만 믹스 (원본 영상 소리는 무시하고 코랩 생성 음악만 합성)
-      // 만약 원본 영상 소리도 섞고 싶다면 입력 수(inputs)와 [0:a] 연동 필요
+      // FFmpeg amix 필터 구문 정밀 결합 (오타 원천 해결)
       const audioFilter =
         musicFiles.length === 1
-          ? `${musicLabels}anull[finalaudio]`
-          : `\({musicLabels}amix=inputs=\){musicFiles.length}:duration=longest:dropout_transition=0:normalize=0,alimiter=limit=0.95[finalaudio]`;
+          ? musicLabels + 'anull[finalaudio]'
+          : musicLabels + 'amix=inputs=' + musicFiles.length + ':duration=longest:dropout_transition=0:normalize=0,alimiter=limit=0.95[finalaudio]';
 
       filterParts.push(audioFilter);
 
       const filterComplex = filterParts.join(';');
 
-      /*
-       * 최종 영상 생성
-       */
       setProcessingMessage('최종 영상을 합성하는 중입니다...');
 
       const args = ['-i', 'input.mp4'];
@@ -260,15 +227,13 @@ const Result = ({
         args.push('-i', music.fileName);
       });
 
-      // 기존: '-map', '0:v:0', '-map', '[finalaudio]'
-      // 수정 후:
       args.push(
         '-filter_complex',
         filterComplex,
         '-map',
-        '0:v:0?',          // 👈 ?를 붙여 비디오 스트림이 없거나 다를 때 오류 방지
+        '0:v:0?',
         '-map',
-        '[finalaudio]',   // 👈 생성된 음악 합본 오디오 맵핑
+        '[finalaudio]',
         '-c:v',
         'copy',
         '-c:a',
@@ -288,9 +253,6 @@ const Result = ({
         throw new Error(`FFmpeg 영상 합성 실패 (exit code: ${exitCode})`);
       }
 
-      /*
-       * 결과 파일 읽기
-       */
       setProcessingMessage('최종 영상을 준비하는 중입니다...');
 
       const outputData = await ffmpeg.readFile('output.mp4');
@@ -299,9 +261,6 @@ const Result = ({
         type: 'video/mp4'
       });
 
-      /*
-       * 기존 결과 URL 제거
-       */
       if (resultUrlRef.current) {
         URL.revokeObjectURL(resultUrlRef.current);
       }
@@ -311,14 +270,7 @@ const Result = ({
       setResultVideoUrl(outputUrl);
 
       console.log('✅ 최종 영상 생성 완료');
-      console.log(
-        '📦 최종 영상 크기:',
-        `${(outputBlob.size / 1024 / 1024).toFixed(2)} MB`
-      );
 
-      /*
-       * FFmpeg 임시 파일 삭제
-       */
       try {
         await ffmpeg.deleteFile('input.mp4');
         await ffmpeg.deleteFile('output.mp4');
@@ -341,9 +293,6 @@ const Result = ({
     musicSelectedIds
   ]);
 
-  /*
-   * Page 진입 후 최종 영상 자동 합성
-   */
   useEffect(() => {
     let cancelled = false;
 
@@ -384,9 +333,6 @@ const Result = ({
     composeVideo
   ]);
 
-  /*
-   * 최종 영상 자동 재생
-   */
   useEffect(() => {
     if (!resultVideoUrl || isProcessing) {
       return;
@@ -415,9 +361,6 @@ const Result = ({
     };
   }, [resultVideoUrl, isProcessing]);
 
-  /*
-   * 최종 영상 저장
-   */
   const handleSave = async () => {
     if (!resultVideoUrl) {
       alert('저장할 최종 동영상이 없습니다.');
@@ -458,9 +401,6 @@ const Result = ({
     }
   };
 
-  /*
-   * 처음으로
-   */
   const handleGoHome = () => {
     if (isProcessing) {
       const confirmed = window.confirm(
@@ -481,9 +421,6 @@ const Result = ({
     }
   };
 
-  /*
-   * 컴포넌트 언마운트 시 Object URL 정리
-   */
   useEffect(() => {
     return () => {
       if (resultUrlRef.current) {
@@ -508,7 +445,6 @@ const Result = ({
           : '음악이 적용된 최종 영상을 확인하세요.'}
       </p>
 
-      {/* 최종 영상 영역 */}
       <div className="result-video-wrapper">
         {showingLoading ? (
           <div className="no-result">
@@ -543,7 +479,6 @@ const Result = ({
         )}
       </div>
 
-      {/* 하단 버튼 영역 */}
       <div className="result-button-container">
         <button
           className="save-result-btn"
