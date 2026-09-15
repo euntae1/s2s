@@ -20,7 +20,7 @@ function App() {
   const [currentPage, setCurrentPage] = useState(1);
   const [videoPreviewUrl, setVideoPreviewUrl] = useState(null);
   const [selectedFile, setSelectedFile] = useState(null);
-
+const [vadTimeline, setVadTimeline] = useState([]);
   // ============================================================
   // Page 2
   // ============================================================
@@ -324,38 +324,42 @@ function App() {
         />
       )}
 
-      {currentPage === 4 && (
-        <Page4
-          videoPreviewUrl={videoPreviewUrl}
-          selectedFile={selectedFile}
-          segments={segments}
-          musicSelectedIds={musicSelectedIds}
-          prompts={Object.fromEntries(
-            scenePrompts.map((item) => [item.id, item.prompt])
-          )}
-          generatedMusic={generatedMusic}
-          generatingId={musicGeneratingId}
-          isLoading={musicGenerationLoading}
-          error={musicGenerationError}
-          onGenerate={handleRegenerateMusic}
-          onGoHome={handleGoHome}
-          onGoNext={handlePage4Next}
-          onGoPrevious={handleGoPrevious}
-        />
-      )}
+{currentPage === 4 && (
+  <Page4
+    videoPreviewUrl={videoPreviewUrl}
+    selectedFile={selectedFile}
+    segments={segments}
+    musicSelectedIds={musicSelectedIds}
+    prompts={Object.fromEntries(
+      scenePrompts.map((item) => [item.id, item.prompt])
+    )}
+    generatedMusic={generatedMusic}
+    generatingId={musicGeneratingId}
+    isLoading={musicGenerationLoading}
+    error={musicGenerationError}
+    onGenerate={handleRegenerateMusic}
+    onGoHome={handleGoHome}
+    onGoNext={handlePage4Next}
+    onGoPrevious={handleGoPrevious}
+    onVadComplete={(timeline) => setVadTimeline(timeline)} /* 👈 VAD 결과 수신 */
+  />
+)}
 
-      {currentPage === 5 && (
-        <Page5
-          videoPreviewUrl={videoPreviewUrl}
-          generatedMusic={generatedMusic}
-          finalVideoUrl={finalVideoUrl}
-          finalVideoLoading={finalVideoLoading}
-          finalVideoError={finalVideoError}
-          onGoHome={handleGoHome}
-          segments={segments}
-          musicSelectedIds={musicSelectedIds}
-        />
-      )}
+
+{currentPage === 5 && (
+  <Page5
+    videoPreviewUrl={videoPreviewUrl}
+    selectedFile={selectedFile}
+    generatedMusic={generatedMusic}
+    finalVideoUrl={finalVideoUrl}
+    finalVideoLoading={finalVideoLoading}
+    finalVideoError={finalVideoError}
+    onGoHome={handleGoHome}
+    segments={segments}
+    musicSelectedIds={musicSelectedIds}
+    vadTimeline={vadTimeline} /* 👈 Page5/Result로 사전 완료된 VAD 전달 */
+  />
+)}
     </div>
   );
 }

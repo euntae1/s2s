@@ -7,14 +7,15 @@ import React, {
 
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile, toBlobURL } from '@ffmpeg/util';
-
 import './result.css';
 
 const Result = ({
+  selectedFile,
   videoPreviewUrl,
   generatedMusic,
   segments,
   musicSelectedIds,
+  vadTimeline = [],
   isLoading,
   error,
   onSave,
@@ -32,9 +33,6 @@ const Result = ({
     '최종 영상을 준비하는 중입니다...'
   );
 
-  /*
-   * FFmpeg 초기화 및 안전한 로드
-   */
   const loadFFmpeg = async () => {
     if (ffmpegRef.current && ffmpegRef.current.loaded) {
       return ffmpegRef.current;
@@ -42,101 +40,68 @@ const Result = ({
 
     if (!ffmpegRef.current) {
       const ffmpeg = new FFmpeg();
-
-      ffmpeg.on('log', ({ message }) => {
-        console.log('[FFmpeg]', message);
-      });
-
+      ffmpeg.on('log', ({ message }) => console.log('[FFmpeg]', message));
       ffmpegRef.current = ffmpeg;
     }
 
     const ffmpeg = ffmpegRef.current;
-
     if (!ffmpeg.loaded) {
       setProcessingMessage('영상 처리 엔진을 불러오는 중입니다...');
-
       const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.10/dist/umd';
-
       await ffmpeg.load({
-        coreURL: await toBlobURL(
-          `${baseURL}/ffmpeg-core.js`,
-          'text/javascript'
-        ),
-        wasmURL: await toBlobURL(
-          `${baseURL}/ffmpeg-core.wasm`,
-          'application/wasm'
-        )
+        coreURL: await toBlobURL(baseURL + '/ffmpeg-core.js', 'text/javascript'),
+        wasmURL: await toBlobURL(baseURL + '/ffmpeg-core.wasm', 'application/wasm')
       });
-
       console.log('✅ FFmpeg 로드 완료');
     }
-
     return ffmpeg;
   };
 
-  /*
-   * 음악 Blob 가져오기
-   */
   const getMusicBlob = async (music) => {
-    if (!music) {
-      throw new Error('음악 데이터가 없습니다.');
-    }
-
-    if (music instanceof Blob) {
-      return music;
-    }
-
-    if (music.blob && music.blob instanceof Blob) {
-      return music.blob;
-    }
+    if (!music) throw new Error('음악 데이터가 없습니다.');
+    if (music instanceof Blob) return music;
+    if (music.blob && music.blob instanceof Blob) return music.blob;
 
     let url = null;
-
-    if (typeof music === 'string') {
-      url = music;
-    } else if (typeof music.musicUrl === 'string') {
-      url = music.musicUrl;
-    } else if (typeof music.url === 'string') {
-      url = music.url;
-    } else if (typeof music.musicUrl?.url === 'string') {
-      url = music.musicUrl.url;
-    }
+    if (typeof music === 'string') url = music;
+    else if (typeof music.musicUrl === 'string') url = music.musicUrl;
+    else if (typeof music.url === 'string') url = music.url;
+    else if (typeof music.musicUrl?.url === 'string') url = music.musicUrl.url;
 
     if (url) {
       const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`생성된 음악을 불러오지 못했습니다. (status: ${response.status})`);
-      }
+      if (!response.ok) throw new Error('생성된 음악을 불러오지 못했습니다.');
       return await response.blob();
     }
-
-    if (music instanceof ArrayBuffer) {
-      return new Blob([music], { type: 'audio/wav' });
-    }
-
-    console.error('❌ 인식할 수 없는 음악 데이터 구조:', music);
+    if (music instanceof ArrayBuffer) return new Blob([music], { type: 'audio/wav' });
     throw new Error('음악 파일 형식을 확인할 수 없습니다.');
   };
 
-  /*
-   * 최종 영상 합성
-   */
+  // VAD volume 필터 식 
+  const buildVadVolumeFilter = (currentMusicStart, currentMusicEnd, vadList) => {
+    if (!vadList || vadList.length === 0) return 'volume=1.0';
+
+    const overlappingVad = vadList.filter(
+      (v) => v.end > currentMusicStart && v.start < currentMusicEnd
+    );
+
+    if (overlappingVad.length === 0) return 'volume=1.0';
+
+    const conditions = overlappingVad.map((v) => {
+      const relStart = Math.max(0, v.start - currentMusicStart).toFixed(2);
+      const relEnd = Math.min(currentMusicEnd - currentMusicStart, v.end - currentMusicStart).toFixed(2);
+      return 'between(t,' + relStart + ',' + relEnd + ')';
+    });
+
+    const enableExpr = conditions.join('+');
+    return "volume=eval=frame:volume='if(" + enableExpr + ",0.3,1.0)'";
+  };
+
   const composeVideo = useCallback(async () => {
-    if (!videoPreviewUrl) {
-      throw new Error('원본 동영상이 없습니다.');
-    }
-
-    if (!segments || !Array.isArray(segments)) {
-      throw new Error('영상 구간 정보가 없습니다.');
-    }
-
-    if (!musicSelectedIds || musicSelectedIds.length === 0) {
-      throw new Error('음악이 적용될 컷이 없습니다.');
-    }
-
-    if (!generatedMusic) {
-      throw new Error('생성된 음악 데이터가 없습니다.');
-    }
+    if (!videoPreviewUrl) throw new Error('원본 동영상이 없습니다.');
+    if (!segments || !Array.isArray(segments)) throw new Error('영상 구간 정보가 없습니다.');
+    if (!musicSelectedIds || musicSelectedIds.length === 0) throw new Error('음악이 적용될 컷이 없습니다.');
+    if (!generatedMusic) throw new Error('생성된 음악 데이터가 없습니다.');
 
     setIsProcessing(true);
     setPlayError(false);
@@ -145,20 +110,13 @@ const Result = ({
       const ffmpeg = await loadFFmpeg();
 
       setProcessingMessage('원본 영상을 불러오는 중입니다...');
-      await ffmpeg.writeFile(
-        'input.mp4',
-        await fetchFile(videoPreviewUrl)
-      );
+      await ffmpeg.writeFile('input.mp4', await fetchFile(videoPreviewUrl));
 
       const selectedSegments = segments
         .filter((segment) => musicSelectedIds.map(String).includes(String(segment.id)))
         .sort((a, b) => Number(a.startTime) - Number(b.startTime));
 
-      if (selectedSegments.length === 0) {
-        throw new Error('음악을 적용할 구간이 없습니다.');
-      }
-
-      console.log('🎵 음악 적용 구간:', selectedSegments);
+      if (selectedSegments.length === 0) throw new Error('음악을 적용할 구간이 없습니다.');
 
       setProcessingMessage('생성된 음악을 불러오는 중입니다...');
       const musicFiles = [];
@@ -167,150 +125,107 @@ const Result = ({
         const segment = selectedSegments[i];
         const music = generatedMusic[segment.id];
 
-        if (!music) {
-          throw new Error(`Scene ${segment.id}의 음악이 없습니다.`);
-        }
+        if (!music) throw new Error('Scene ' + segment.id + '의 음악이 없습니다.');
 
         const musicBlob = await getMusicBlob(music);
-        const fileName = `music_${i}.wav`;
+        const fileName = 'music_' + i + '.wav';
 
-        await ffmpeg.writeFile(
-          fileName,
-          await fetchFile(musicBlob)
-        );
+        await ffmpeg.writeFile(fileName, await fetchFile(musicBlob));
 
         const startTime = Number(segment.startTime);
         const endTime = Number(segment.endTime);
         const duration = Math.max(0, endTime - startTime);
 
-        musicFiles.push({
-          fileName,
-          startTime,
-          duration
-        });
+        musicFiles.push({ fileName, startTime, endTime, duration });
       }
 
-      setProcessingMessage('장면별 음악을 영상에 배치하는 중입니다...');
+      setProcessingMessage('VAD 음성 구간 감쇄 및 오디오 배치 중...');
       const filterParts = [];
+
+      filterParts.push('[0:a]volume=1.0[orig_audio]');
 
       musicFiles.forEach((music, index) => {
         const delay = Math.max(0, Math.round(music.startTime * 1000));
         const duration = Math.max(0.01, music.duration);
+        
+        // VAD 구간 감쇄 (말소리 구간일 때 음악 음량을 0.1로 확실하게 축소)
+        const volumeFilter = buildVadVolumeFilter(music.startTime, music.endTime, vadTimeline).replace('0.3', '0.1');
 
         filterParts.push(
           '[' + (index + 1) + ':a]' +
             'atrim=0:' + duration + ',' +
             'asetpts=PTS-STARTPTS,' +
             'adelay=' + delay + ':all=1,' +
-            'volume=0.8' +
+            volumeFilter +
             '[music' + index + ']'
         );
       });
 
-      const musicLabels = musicFiles.map((_, i) => '[music' + i + ']').join('');
+      const allMusicLabels = musicFiles.map((_, i) => '[' + 'music' + i + ']').join('');
+      const mixInputsCount = musicFiles.length + 1;
 
-      // FFmpeg amix 필터 구문 정밀 결합 (오타 원천 해결)
+      // 💡 [안정화] amix 필터 부하 최소화 설정
       const audioFilter =
-        musicFiles.length === 1
-          ? musicLabels + 'anull[finalaudio]'
-          : musicLabels + 'amix=inputs=' + musicFiles.length + ':duration=longest:dropout_transition=0:normalize=0,alimiter=limit=0.95[finalaudio]';
+        '[orig_audio]' + allMusicLabels +
+        'amix=inputs=' + mixInputsCount + ':duration=first:normalize=0[finalaudio]';
 
       filterParts.push(audioFilter);
-
       const filterComplex = filterParts.join(';');
 
       setProcessingMessage('최종 영상을 합성하는 중입니다...');
 
       const args = ['-i', 'input.mp4'];
-
-      musicFiles.forEach((music) => {
-        args.push('-i', music.fileName);
-      });
+      musicFiles.forEach((music) => args.push('-i', music.fileName));
 
       args.push(
-        '-filter_complex',
-        filterComplex,
-        '-map',
-        '0:v:0?',
-        '-map',
-        '[finalaudio]',
-        '-c:v',
-        'copy',
-        '-c:a',
-        'aac',
-        '-b:a',
-        '192k',
-        '-shortest',
-        '-movflags',
-        '+faststart',
-        'output.mp4'
+        '-filter_complex', filterComplex,
+        '-map', '0:v:0?',
+        '-map', '[finalaudio]',
+        '-c:v', 'copy',
+        '-c:a', 'aac',
+        '-b:a', '128k',
+        'output.mp4' // 💡 moov atom 재배치(-movflags +faststart)를 제거하여 Aborted 에러 원천 차단
       );
-      console.log('🎬 FFmpeg 실행:', args);
+
+      console.log('🎬 FFmpeg 원본+음악 합성 실행:', args);
 
       const exitCode = await ffmpeg.exec(args);
-
-      if (exitCode !== 0) {
-        throw new Error(`FFmpeg 영상 합성 실패 (exit code: ${exitCode})`);
-      }
+      if (exitCode !== 0) throw new Error('FFmpeg 영상 합성 실패 (exit code: ' + exitCode + ')');
 
       setProcessingMessage('최종 영상을 준비하는 중입니다...');
 
       const outputData = await ffmpeg.readFile('output.mp4');
+      const outputBlob = new Blob([outputData.buffer], { type: 'video/mp4' });
 
-      const outputBlob = new Blob([outputData.buffer], {
-        type: 'video/mp4'
-      });
-
-      if (resultUrlRef.current) {
-        URL.revokeObjectURL(resultUrlRef.current);
-      }
+      if (resultUrlRef.current) URL.revokeObjectURL(resultUrlRef.current);
 
       const outputUrl = URL.createObjectURL(outputBlob);
       resultUrlRef.current = outputUrl;
       setResultVideoUrl(outputUrl);
 
-      console.log('✅ 최종 영상 생성 완료');
-
+      // 파일 정리 (에러 방지용 try-catch 감싸기)
       try {
         await ffmpeg.deleteFile('input.mp4');
         await ffmpeg.deleteFile('output.mp4');
-
         for (const music of musicFiles) {
-          await ffmpeg.deleteFile(music.fileName);
+          try { await ffmpeg.deleteFile(music.fileName); } catch (e) {}
         }
       } catch (cleanupError) {
-        console.warn('FFmpeg 임시 파일 삭제 실패:', cleanupError);
+        console.warn('FFmpeg 임시 파일 정리 경고:', cleanupError);
       }
 
       return outputUrl;
     } finally {
       setIsProcessing(false);
     }
-  }, [
-    videoPreviewUrl,
-    generatedMusic,
-    segments,
-    musicSelectedIds
-  ]);
-
+  }, [videoPreviewUrl, generatedMusic, segments, musicSelectedIds, vadTimeline]);
   useEffect(() => {
     let cancelled = false;
 
+    if (resultUrlRef.current || isProcessing) return;
+
     const startComposition = async () => {
-      if (
-        !videoPreviewUrl ||
-        !generatedMusic ||
-        !segments ||
-        !musicSelectedIds ||
-        musicSelectedIds.length === 0
-      ) {
-        return;
-      }
-
-      if (resultUrlRef.current) {
-        return;
-      }
-
+      if (!videoPreviewUrl || !generatedMusic || !segments || !musicSelectedIds || musicSelectedIds.length === 0) return;
       try {
         await composeVideo();
         if (cancelled) return;
@@ -321,25 +236,12 @@ const Result = ({
     };
 
     startComposition();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    videoPreviewUrl,
-    generatedMusic,
-    segments,
-    musicSelectedIds,
-    composeVideo
-  ]);
+    return () => { cancelled = true; };
+  }, [videoPreviewUrl, generatedMusic, segments, musicSelectedIds, composeVideo, isProcessing]);
 
   useEffect(() => {
-    if (!resultVideoUrl || isProcessing) {
-      return;
-    }
-
+    if (!resultVideoUrl || isProcessing) return;
     setPlayError(false);
-
     const video = videoRef.current;
     if (!video) return;
 
@@ -347,54 +249,34 @@ const Result = ({
       try {
         video.currentTime = 0;
         await video.play();
-        console.log('▶️ 최종 영상 자동 재생 시작');
       } catch (playErr) {
-        console.warn('자동 재생이 차단되었습니다:', playErr);
         setPlayError(true);
       }
     };
 
     video.addEventListener('loadeddata', handleLoadedData);
-
-    return () => {
-      video.removeEventListener('loadeddata', handleLoadedData);
-    };
+    return () => video.removeEventListener('loadeddata', handleLoadedData);
   }, [resultVideoUrl, isProcessing]);
 
   const handleSave = async () => {
-    if (!resultVideoUrl) {
-      alert('저장할 최종 동영상이 없습니다.');
-      return;
-    }
-
+    if (!resultVideoUrl) return;
     setIsSaving(true);
-
     try {
       if (onSave) {
         await onSave(resultVideoUrl);
         return;
       }
-
       const response = await fetch(resultVideoUrl);
-      if (!response.ok) {
-        throw new Error('최종 영상을 불러오지 못했습니다.');
-      }
-
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
-
       link.href = url;
       link.download = 'scene-to-sound-result.mp4';
-
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-
       URL.revokeObjectURL(url);
-      console.log('💾 최종 영상 저장 완료');
     } catch (saveError) {
-      console.error('Video save failed:', saveError);
       alert('동영상 저장 중 오류가 발생했습니다.');
     } finally {
       setIsSaving(false);
@@ -402,106 +284,81 @@ const Result = ({
   };
 
   const handleGoHome = () => {
-    if (isProcessing) {
-      const confirmed = window.confirm(
-        '현재 최종 영상을 만드는 중입니다. 처음으로 돌아가시겠습니까?'
-      );
-      if (!confirmed) return;
-    }
-
     if (resultUrlRef.current) {
       URL.revokeObjectURL(resultUrlRef.current);
       resultUrlRef.current = null;
     }
-
     setResultVideoUrl(null);
-
-    if (onGoHome) {
-      onGoHome();
-    }
+    if (onGoHome) onGoHome();
   };
 
-  useEffect(() => {
-    return () => {
-      if (resultUrlRef.current) {
-        URL.revokeObjectURL(resultUrlRef.current);
-        resultUrlRef.current = null;
-      }
-    };
-  }, []);
-
-  const showingLoading = isLoading || isProcessing;
-  const showingError = !!error;
-
-  return (
-    <div className="result-container">
-      <h2 className="result-title">🎬 최종 결과물</h2>
-
-      <p className="result-description">
-        {showingLoading
-          ? processingMessage
-          : showingError
-          ? '최종 영상 생성 중 오류가 발생했습니다.'
-          : '음악이 적용된 최종 영상을 확인하세요.'}
-      </p>
-
-      <div className="result-video-wrapper">
-        {showingLoading ? (
-          <div className="no-result">
-            <div className="result-loading-spinner" />
-            <div>최종 영상을 만드는 중입니다...</div>
-            <div>잠시만 기다려 주세요.</div>
-          </div>
-        ) : showingError ? (
-          <div className="no-result">
-            <div>❌ 최종 영상 생성 실패</div>
-            <div>{error}</div>
-          </div>
-        ) : resultVideoUrl ? (
-          <div>
-            <video
-              ref={videoRef}
-              className="result-video"
-              src={resultVideoUrl}
-              controls
-              autoPlay
-              playsInline
-              preload="auto"
-            />
-            {playError && (
-              <p className="result-play-message">
-                ▶ 자동 재생이 차단되었습니다. 재생 버튼을 눌러 영상을 시작해주세요.
-              </p>
-            )}
-          </div>
-        ) : (
-          <div className="no-result">합성중입니다.</div>
-        )}
-      </div>
-
-      <div className="result-button-container">
-        <button
-          className="save-result-btn"
-          onClick={handleSave}
-          disabled={
-            showingLoading ||
-            showingError ||
-            !resultVideoUrl ||
-            isSaving
-          }
-        >
-          {isSaving ? '저장 중...' : '💾 저장하기'}
-        </button>
-
-        <button
-          className="home-result-btn"
-          onClick={handleGoHome}
-          disabled={isSaving}
-        >
-          🏠 처음으로
-        </button>
-      </div>
-    </div>
+  return React.createElement(
+    'div',
+    { className: 'result-container' },
+    React.createElement('h2', { className: 'result-title' }, '🎬 최종 결과물'),
+    React.createElement(
+      'p',
+      { className: 'result-description' },
+      isLoading || isProcessing
+        ? processingMessage
+        : error
+        ? '최종 영상 생성 중 오류가 발생했습니다.'
+        : '음악과 VAD 음량 조절이 완료된 최종 영상입니다.'
+    ),
+    React.createElement(
+      'div',
+      { className: 'result-video-wrapper' },
+      isLoading || isProcessing
+        ? React.createElement(
+            'div',
+            { className: 'no-result' },
+            React.createElement('div', { className: 'result-loading-spinner' }),
+            React.createElement('div', null, '최종 영상을 만드는 중입니다...')
+          )
+        : error
+        ? React.createElement(
+            'div',
+            { className: 'no-result' },
+            React.createElement('div', null, '❌ 최종 영상 생성 실패'),
+            React.createElement('div', null, error)
+          )
+        : resultVideoUrl
+        ? React.createElement(
+            'div',
+            null,
+            React.createElement('video', {
+              ref: videoRef,
+              className: 'result-video',
+              src: resultVideoUrl,
+              controls: true,
+              autoPlay: true,
+              playsInline: true
+            })
+          )
+        : React.createElement('div', { className: 'no-result' }, '합성 중입니다.')
+    ),
+    React.createElement(
+      'div',
+      { className: 'result-button-container' },
+      React.createElement(
+        'button',
+        {
+          className: 'save-result-btn',
+          onClick: handleSave,
+          disabled: isLoading || isProcessing || !resultVideoUrl || isSaving
+        },
+        isSaving ? '저장 중...' : '💾 저장하기'
+      ),
+      React.createElement(
+        'button',
+        {
+          className: 'home-result-btn',
+          onClick: handleGoHome,
+          disabled: isSaving
+        },
+        '🏠 처음으로'
+      )
+    )
   );
 };
 
