@@ -14,7 +14,9 @@ const Page5 = ({
   onSave,
   segments,
   musicSelectedIds,
-  onGoHome
+  onGoHome,
+  vadTimeline
+
 }) => {
 
   return (
@@ -34,6 +36,7 @@ const Page5 = ({
           finalVideoError={finalVideoError}
           onSave={onSave}
           onGoHome={onGoHome}
+          vadTimeline={vadTimeline}
         />
 
       </main>

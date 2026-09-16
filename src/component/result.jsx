@@ -149,7 +149,7 @@ const Result = ({
         const duration = Math.max(0.01, music.duration);
         
         // VAD 구간 감쇄 (말소리 구간일 때 음악 음량을 0.1로 확실하게 축소)
-        const volumeFilter = buildVadVolumeFilter(music.startTime, music.endTime, vadTimeline).replace('0.3', '0.1');
+        const volumeFilter = buildVadVolumeFilter(music.startTime, music.endTime, vadTimeline).replace('0.3', '0.3');
 
         filterParts.push(
           '[' + (index + 1) + ':a]' +
