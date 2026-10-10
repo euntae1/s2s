@@ -1,9 +1,14 @@
-# Scene to Sound (S2S)
+
+
 ### Video Scene Analysis & Automated Background Music Generation
 
 **동영상의 장면을 분석하고, 각 장면의 분위기에 어울리는 배경음악을 생성하여 자동으로 삽입하는 AI 기반 멀티미디어 시스템**
 
-> Upload a video, analyze its scenes, generate context-aware background music, and automatically integrate the audio into the original video.
+
+
+# 해당 영상의 원본에는 소리가 없었으나, 본 시스템을 적용해 영상의 분위기에 어울리는 배경음악을 자동으로 생성하고 적용한 결과입니다.
+
+
 
 ---
 
@@ -27,8 +32,16 @@ Scene to Sound(S2S)는 사용자가 업로드한 동영상을 분석하여 장�
 - **음악 자동 삽입:** 생성된 오디오를 원본 영상의 장면 구간에 맞춰 배치하고 최종 영상을 구성합니다.
 - **분산 서버 아키텍처:** CPU 기반 영상 분석 서버와 GPU 기반 음악 생성 서버를 분리하여 제한된 컴퓨팅 자원을 효율적으로 활용하도록 설계했습니다.
 
----
+<img width="1915" height="873" alt="page_1" src="https://github.com/user-attachments/assets/c88b31bb-81bf-4b12-aab1-9518a6552df0" />
+<img width="1901" height="856" alt="page_2" src="https://github.com/user-attachments/assets/fd1b6ef9-05a4-4375-802c-9d8a6b07b5ee" />
+<img width="1917" height="873" alt="page_3" src="https://github.com/user-attachments/assets/0f172a0f-853e-4c71-acce-55f733f75aea" />
+<img width="1917" height="866" alt="page_4" src="https://github.com/user-attachments/assets/05b786f2-2e9f-47a5-a70f-fcbe2d441943" />
+<img width="1917" height="867" alt="page_5" src="https://github.com/user-attachments/assets/ce082c84-9600-4fa9-8d05-3108916252d7" />
 
+
+
+
+---
 ## 2. 프로젝트 정보 (Project Information)
 
 | 항목 | 내용 |
@@ -615,6 +628,8 @@ Google Colab과 ngrok을 이용한 구성은 프로토타입 개발에 유용하
 ## 11. 프로젝트 요약 (Summary)
 
 Scene to Sound는 영상 분석 모델과 생성형 AI를 개별적으로 사용하는 데 그치지 않고, 영상의 시각적 특징을 추출하고 장면을 군집화한 다음, 장면별 음악 프롬프트 생성과 오디오 생성, 최종 영상 합성까지 연결한 멀티미디어 시스템입니다.
+<img width="1901" height="856" alt="page_2" src="https://github.com/user-attachments/assets/cf9f17f5-cb43-4297-8335-601eb247378c" />
+<img width="1917" height="867" alt="page_5" src="https://github.com/user-attachments/assets/51cb66a7-2ce1-4e9b-bfd6-d2e8437db831" />
 
 CLIP 임베딩과 DBSCAN을 이용한 장면 분석, Gemini API를 통한 음악 생성 프롬프트 작성, Stable Audio Open 기반 오디오 생성, React 웹 인터페이스 및 분산 서버 구조를 결합했습니다.
 
