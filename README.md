@@ -36,12 +36,17 @@ Scene to Sound(S2S)는 사용자가 업로드한 동영상을 분석하여 장�
 - **음악 자동 삽입:** 생성된 오디오를 원본 영상의 장면 구간에 맞춰 배치하고 최종 영상을 구성합니다.
 - **분산 서버 아키텍처:** CPU 기반 영상 분석 서버와 GPU 기반 음악 생성 서버를 분리하여 제한된 컴퓨팅 자원을 효율적으로 활용하도록 설계했습니다.
 
+<웹 페이지 화면: 5단계>
 <img width="1915" height="873" alt="page_1" src="https://github.com/user-attachments/assets/c88b31bb-81bf-4b12-aab1-9518a6552df0" />
+page_1
 <img width="1901" height="856" alt="page_2" src="https://github.com/user-attachments/assets/fd1b6ef9-05a4-4375-802c-9d8a6b07b5ee" />
+page_2
 <img width="1917" height="873" alt="page_3" src="https://github.com/user-attachments/assets/0f172a0f-853e-4c71-acce-55f733f75aea" />
+page_3
 <img width="1917" height="866" alt="page_4" src="https://github.com/user-attachments/assets/05b786f2-2e9f-47a5-a70f-fcbe2d441943" />
+page_4
 <img width="1917" height="867" alt="page_5" src="https://github.com/user-attachments/assets/ce082c84-9600-4fa9-8d05-3108916252d7" />
-
+page_5
 
 
 
