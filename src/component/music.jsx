@@ -61,7 +61,7 @@ const Music = ({
             onClick={handleGenerate}
             disabled={isGenerating}
           >
-            {isGenerating ? '🎵 음악 생성 중...' : '🎵 음악 생성'}
+            {isGenerating ? '🎵 음악 생성 중...' : '🎵 음악 다시 생성'}
           </button>
         ) : (
           <div className="music-player">
