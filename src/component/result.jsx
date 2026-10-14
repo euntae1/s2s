@@ -134,29 +134,44 @@ const Result = ({
 
         const startTime = Number(segment.startTime);
         const endTime = Number(segment.endTime);
-        const duration = Math.max(0, endTime - startTime);
+        const rawDuration = Math.max(0, endTime - startTime);
 
-        musicFiles.push({ fileName, startTime, endTime, duration });
+        const isLastSegment = (i === selectedSegments.length - 1);
+        const duration = isLastSegment ? rawDuration : rawDuration + 1.0;
+
+        // 💡 isLastSegment 전달하도록 수정
+        musicFiles.push({ fileName, startTime, endTime, duration, isLastSegment });
       }
 
       setProcessingMessage('VAD 음성 구간 감쇄 및 오디오 배치 중...');
       const filterParts = [];
 
       filterParts.push('[0:a]volume=1.0[orig_audio]');
-
       musicFiles.forEach((music, index) => {
         const delay = Math.max(0, Math.round(music.startTime * 1000));
         const duration = Math.max(0.01, music.duration);
         
-        // VAD 구간 감쇄 (말소리 구간일 때 음악 음량을 0.1로 확실하게 축소)
+        // 1. VAD 구간 감쇄 필터 (VAD 없으면 1.0 유지)
         const volumeFilter = buildVadVolumeFilter(music.startTime, music.endTime, vadTimeline).replace('0.3', '0.3');
 
+        // 2. 💡 [해결] 마지막 컷일 경우, 전체 비디오 타임라인 절대 시간 기준으로 afade 적용
+        let fadeOutFilter = '';
+        if (music.isLastSegment) {
+          const fadeOutDuration = 1.0; // 1.0초 동안 소리 완전 소멸
+          // 전체 비디오 타임라인 기준 종료 시점 (startTime + duration - fadeOutDuration)
+          const fadeOutStart = Math.max(0, music.startTime + duration - fadeOutDuration).toFixed(2);
+          fadeOutFilter = ',afade=t=out:st=' + fadeOutStart + ':d=' + fadeOutDuration;
+        }
+
+        // 💡 [올바른 필터 체인 순서]
+        // atrim -> adelay(타임라인 위치 지정) -> volumeFilter -> afade(최종 볼륨 0으로 절삭)
         filterParts.push(
           '[' + (index + 1) + ':a]' +
-            'atrim=0:' + duration + ',' +
+            'atrim=0:' + duration.toFixed(2) + ',' +
             'asetpts=PTS-STARTPTS,' +
             'adelay=' + delay + ':all=1,' +
             volumeFilter +
+            fadeOutFilter +                         // 👈 맨 마지막에 배치하여 볼륨을 0.0까지 완벽 제거
             '[music' + index + ']'
         );
       });
@@ -164,7 +179,6 @@ const Result = ({
       const allMusicLabels = musicFiles.map((_, i) => '[' + 'music' + i + ']').join('');
       const mixInputsCount = musicFiles.length + 1;
 
-      // 💡 [안정화] amix 필터 부하 최소화 설정
       const audioFilter =
         '[orig_audio]' + allMusicLabels +
         'amix=inputs=' + mixInputsCount + ':duration=first:normalize=0[finalaudio]';
@@ -184,7 +198,7 @@ const Result = ({
         '-c:v', 'copy',
         '-c:a', 'aac',
         '-b:a', '128k',
-        'output.mp4' // 💡 moov atom 재배치(-movflags +faststart)를 제거하여 Aborted 에러 원천 차단
+        'output.mp4'
       );
 
       console.log('🎬 FFmpeg 원본+음악 합성 실행:', args);
@@ -203,7 +217,6 @@ const Result = ({
       resultUrlRef.current = outputUrl;
       setResultVideoUrl(outputUrl);
 
-      // 파일 정리 (에러 방지용 try-catch 감싸기)
       try {
         await ffmpeg.deleteFile('input.mp4');
         await ffmpeg.deleteFile('output.mp4');
@@ -219,6 +232,7 @@ const Result = ({
       setIsProcessing(false);
     }
   }, [videoPreviewUrl, generatedMusic, segments, musicSelectedIds, vadTimeline]);
+
   useEffect(() => {
     let cancelled = false;
 
