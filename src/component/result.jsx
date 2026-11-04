@@ -28,7 +28,6 @@ const Result = ({
   const [resultVideoUrl, setResultVideoUrl] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [playError, setPlayError] = useState(false);
   const [processingMessage, setProcessingMessage] = useState(
     '최종 영상을 준비하는 중입니다...'
   );
@@ -49,8 +48,8 @@ const Result = ({
       setProcessingMessage('영상 처리 엔진을 불러오는 중입니다...');
       const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.10/dist/umd';
       await ffmpeg.load({
-        coreURL: await toBlobURL(baseURL + '/ffmpeg-core.js', 'text/javascript'),
-        wasmURL: await toBlobURL(baseURL + '/ffmpeg-core.wasm', 'application/wasm')
+        coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+        wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm')
       });
       console.log('✅ FFmpeg 로드 완료');
     }
@@ -90,11 +89,11 @@ const Result = ({
     const conditions = overlappingVad.map((v) => {
       const relStart = Math.max(0, v.start - currentMusicStart).toFixed(2);
       const relEnd = Math.min(currentMusicEnd - currentMusicStart, v.end - currentMusicStart).toFixed(2);
-      return 'between(t,' + relStart + ',' + relEnd + ')';
+      return `between(t,${relStart},${relEnd})`;
     });
 
     const enableExpr = conditions.join('+');
-    return "volume=eval=frame:volume='if(" + enableExpr + ",0.3,1.0)'";
+    return `volume=eval=frame:volume='if(${enableExpr},0.3,1.0)'`;
   };
 
   const composeVideo = useCallback(async () => {
@@ -104,7 +103,6 @@ const Result = ({
     if (!generatedMusic) throw new Error('생성된 음악 데이터가 없습니다.');
 
     setIsProcessing(true);
-    setPlayError(false);
 
     try {
       const ffmpeg = await loadFFmpeg();
@@ -125,10 +123,10 @@ const Result = ({
         const segment = selectedSegments[i];
         const music = generatedMusic[segment.id];
 
-        if (!music) throw new Error('Scene ' + segment.id + '의 음악이 없습니다.');
+        if (!music) throw new Error(`Scene ${segment.id}의 음악이 없습니다.`);
 
         const musicBlob = await getMusicBlob(music);
-        const fileName = 'music_' + i + '.wav';
+        const fileName = `music_${i}.wav`;
 
         await ffmpeg.writeFile(fileName, await fetchFile(musicBlob));
 
@@ -139,7 +137,6 @@ const Result = ({
         const isLastSegment = (i === selectedSegments.length - 1);
         const duration = isLastSegment ? rawDuration : rawDuration + 1.0;
 
-        // 💡 isLastSegment 전달하도록 수정
         musicFiles.push({ fileName, startTime, endTime, duration, isLastSegment });
       }
 
@@ -151,37 +148,32 @@ const Result = ({
         const delay = Math.max(0, Math.round(music.startTime * 1000));
         const duration = Math.max(0.01, music.duration);
         
-        // 1. VAD 구간 감쇄 필터 (VAD 없으면 1.0 유지)
         const volumeFilter = buildVadVolumeFilter(music.startTime, music.endTime, vadTimeline).replace('0.3', '0.3');
 
-        // 2. 💡 [해결] 마지막 컷일 경우, 전체 비디오 타임라인 절대 시간 기준으로 afade 적용
         let fadeOutFilter = '';
         if (music.isLastSegment) {
-          const fadeOutDuration = 1.0; // 1.0초 동안 소리 완전 소멸
-          // 전체 비디오 타임라인 기준 종료 시점 (startTime + duration - fadeOutDuration)
+          const fadeOutDuration = 1.0;
           const fadeOutStart = Math.max(0, music.startTime + duration - fadeOutDuration).toFixed(2);
-          fadeOutFilter = ',afade=t=out:st=' + fadeOutStart + ':d=' + fadeOutDuration;
+          fadeOutFilter = `,afade=t=out:st=${fadeOutStart}:d=${fadeOutDuration}`;
         }
 
-        // 💡 [올바른 필터 체인 순서]
-        // atrim -> adelay(타임라인 위치 지정) -> volumeFilter -> afade(최종 볼륨 0으로 절삭)
         filterParts.push(
-          '[' + (index + 1) + ':a]' +
-            'atrim=0:' + duration.toFixed(2) + ',' +
+          `[${index + 1}:a]` +
+            `atrim=0:${duration.toFixed(2)},` +
             'asetpts=PTS-STARTPTS,' +
-            'adelay=' + delay + ':all=1,' +
+            `adelay=${delay}:all=1,` +
             volumeFilter +
-            fadeOutFilter +                         // 👈 맨 마지막에 배치하여 볼륨을 0.0까지 완벽 제거
-            '[music' + index + ']'
+            fadeOutFilter +
+            `[music${index}]`
         );
       });
 
-      const allMusicLabels = musicFiles.map((_, i) => '[' + 'music' + i + ']').join('');
+      const allMusicLabels = musicFiles.map((_, i) => `[music${i}]`).join('');
       const mixInputsCount = musicFiles.length + 1;
 
       const audioFilter =
-        '[orig_audio]' + allMusicLabels +
-        'amix=inputs=' + mixInputsCount + ':duration=first:normalize=0[finalaudio]';
+        `[orig_audio]${allMusicLabels}` +
+        `amix=inputs=${mixInputsCount}:duration=first:normalize=0[finalaudio]`;
 
       filterParts.push(audioFilter);
       const filterComplex = filterParts.join(';');
@@ -204,7 +196,7 @@ const Result = ({
       console.log('🎬 FFmpeg 원본+음악 합성 실행:', args);
 
       const exitCode = await ffmpeg.exec(args);
-      if (exitCode !== 0) throw new Error('FFmpeg 영상 합성 실패 (exit code: ' + exitCode + ')');
+      if (exitCode !== 0) throw new Error(`FFmpeg 영상 합성 실패 (exit code: ${exitCode})`);
 
       setProcessingMessage('최종 영상을 준비하는 중입니다...');
 
@@ -255,7 +247,6 @@ const Result = ({
 
   useEffect(() => {
     if (!resultVideoUrl || isProcessing) return;
-    setPlayError(false);
     const video = videoRef.current;
     if (!video) return;
 
@@ -264,7 +255,7 @@ const Result = ({
         video.currentTime = 0;
         await video.play();
       } catch (playErr) {
-        setPlayError(true);
+        console.warn('자동 재생 정책으로 인해 재생이 제한되었습니다:', playErr);
       }
     };
 
