@@ -1,26 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import './voice.css';
 
 const Voice = ({ selectedFile, videoPreviewUrl, onVadComplete }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [timeline, setTimeline] = useState([]);
   const [error, setError] = useState(null);
-
-  const extractAudioAsWav = async (videoBlob) => {
-    const arrayBuffer = await videoBlob.arrayBuffer();
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-    
-    const targetSampleRate = 16000;
-    const offlineCtx = new OfflineAudioContext(1, audioBuffer.duration * targetSampleRate, targetSampleRate);
-    const source = offlineCtx.createBufferSource();
-    source.buffer = audioBuffer;
-    source.connect(offlineCtx.destination);
-    source.start(0);
-    
-    const renderedBuffer = await offlineCtx.startRendering();
-    return bufferToWav(renderedBuffer);
-  };
 
   const bufferToWav = (buffer) => {
     const numOfChan = buffer.numberOfChannels;
@@ -66,6 +50,22 @@ const Voice = ({ selectedFile, videoPreviewUrl, onVadComplete }) => {
     }
     return new Blob([out.buffer], { type: 'audio/wav' });
   };
+
+  const extractAudioAsWav = useCallback(async (videoBlob) => {
+    const arrayBuffer = await videoBlob.arrayBuffer();
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+    
+    const targetSampleRate = 16000;
+    const offlineCtx = new OfflineAudioContext(1, audioBuffer.duration * targetSampleRate, targetSampleRate);
+    const source = offlineCtx.createBufferSource();
+    source.buffer = audioBuffer;
+    source.connect(offlineCtx.destination);
+    source.start(0);
+    
+    const renderedBuffer = await offlineCtx.startRendering();
+    return bufferToWav(renderedBuffer);
+  }, []);
 
   useEffect(() => {
     let isSubscribed = true;
@@ -134,7 +134,7 @@ const Voice = ({ selectedFile, videoPreviewUrl, onVadComplete }) => {
     return () => {
       isSubscribed = false;
     };
-  }, [selectedFile, videoPreviewUrl]);
+  }, [selectedFile, videoPreviewUrl, extractAudioAsWav, onVadComplete]);
 
   return React.createElement(
     'div',
@@ -149,7 +149,7 @@ const Voice = ({ selectedFile, videoPreviewUrl, onVadComplete }) => {
           React.createElement('span', null, '영상 내 말소리 구간을 분석하는 중입니다...')
         )
       : error
-      ? React.createElement('div', { className: 'voice-error' }, '⚠️ ' + error)
+      ? React.createElement('div', { className: 'voice-error' }, `⚠️ ${error}`)
       : timeline.length === 0
       ? React.createElement(
           'div',
@@ -163,7 +163,7 @@ const Voice = ({ selectedFile, videoPreviewUrl, onVadComplete }) => {
             'p',
             { className: 'voice-summary' },
             '총 ',
-            React.createElement('strong', null, timeline.length + '개'),
+            React.createElement('strong', null, `${timeline.length}개`),
             '의 말소리 구간 감지됨'
           ),
           React.createElement(
@@ -173,7 +173,7 @@ const Voice = ({ selectedFile, videoPreviewUrl, onVadComplete }) => {
               React.createElement(
                 'span',
                 { key: idx, className: 'voice-badge' },
-                '🗣️ ' + seg.start + '초 ~ ' + seg.end + '초'
+                `🗣️ ${seg.start}초 ~ ${seg.end}초`
               )
             )
           )
